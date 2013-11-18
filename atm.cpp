@@ -10,6 +10,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <string>
+#include <vector>
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
+
+using namespace boost;
 
 int main(int argc, char* argv[])
 {
@@ -42,20 +48,45 @@ int main(int argc, char* argv[])
 	}
 	
 	//input loop
-	char buf[80];
+	std::string buf;
 	while(1)
 	{
 		printf("atm> ");
-		fgets(buf, 79, stdin);
-		buf[strlen(buf)-1] = '\0';	//trim off trailing newline
+		cin >> buf;
+		//fgets(buf, 79, stdin);
+		//buf[strlen(buf)-1] = '\0';	//trim off trailing newline
 		
 		//TODO: your input parsing code has to put data here
 		char packet[1024];
 		int length = 1;
+
+		std::vector<std::string> command;
+
+	    char_separator<char> sep(" ");
+		tokenizer<char_separator<char> > tokens(buf, sep);
+		BOOST_FOREACH (const std::string& t, tokens){
+			command.push_back(t);
+		}
 		
-		//input parsing
-		if(!strcmp(buf, "logout"))
-			break;
+		std::vector<std::string> validCmds;
+		validCmds.push_back("login");
+		validCmds.push_back("withdraw");
+		validCmds.push_back("deposit");
+		validCmds.push_back("transfer");
+		validCmds.push_back("logout");
+
+		bool in = false;
+		for(int i = 0; i < validCmds.size(); i++) {
+			if(command[0] == validCmds[i]){
+				in = true;
+			}
+		}
+
+		if(!in){
+			std::cout << "Not a valid command, please try again" << std::endl;
+			continue;
+		}
+		
 		//TODO: other commands
 		
 		//send the packet through the proxy to the bank
