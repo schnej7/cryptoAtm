@@ -38,8 +38,8 @@ const int PACKETSIZE = 1024;
 
 string makeNonce() {
 
-	const unsigned int BLOCKSIZE = 4;
-	byte scratch[BLOCKSIZE];
+    const unsigned int BLOCKSIZE = 4;
+    byte scratch[BLOCKSIZE];
 
 	AutoSeededRandomPool prng;
 	prng.GenerateBlock(scratch, BLOCKSIZE);
@@ -54,7 +54,7 @@ string makeNonce() {
 	oss << nonceInt;
 	string nonceStr = oss.str();
 
-	return nonceStr;
+    return nonceStr;
 }
 
 /*this is a function that will take a message and break
@@ -72,7 +72,7 @@ string createPacket(std::string &nonce, std::string &message, std::string &newNo
 	
 	string plain = nonce + "$" + message + "$" + newNonce;
 
-	//plain = pad(plain);
+	plain = pad(plain);
 	
 	AutoSeededRandomPool prng;
 
@@ -106,6 +106,41 @@ string createPacket(std::string &nonce, std::string &message, std::string &newNo
 	return packet;
 }
 
-std::vector<std::string> openPacket(string &packet) {
+std::vector<string> openPacket(string &packet) {
 
+}
+
+string pad(string &packet) {
+
+	//std::cout << "Before pad size: "<< packet << " is " << (int)packet.size() << " characters" << std::endl;
+    if (packet.size() < 1006) {
+        packet += "~";
+    }
+    while (packet.size() < 1006) {
+        packet += "a";
+    }
+    packet += "\0";
+
+    //std::cout << "After pad size: "<< packet << " is " << (int)packet.size() << " characters" << std::endl;
+
+	return packet;
+}
+
+string unPad(string &packet){
+
+	int position = -1;
+	bool marker = false;
+
+	for(int i = 0; i < packet.size(); ++i){
+		if(packet[i] == '~'){
+			position = i;
+			marker = true;
+			break;
+		}
+	}
+
+	if(marker){
+		packet = packet.substr(0,position);
+	}
+	return packet;
 }

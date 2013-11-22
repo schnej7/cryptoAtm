@@ -4,7 +4,9 @@
 #include <string>
 using std::string;
 
-string makeNonce();
 string createPacket(string &nonce, string &message, string &newNonce);
+string makeNonce();
+string pad(std::string &packet);
+string unPad(std::string &packet);
 
 #endif
