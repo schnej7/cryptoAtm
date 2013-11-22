@@ -2,7 +2,9 @@
 #define __util_h__
 
 #include <string>
+using std::string;
 
-std::string makeNonce();
+string makeNonce();
+string createPacket(string &nonce, string &message, string &newNonce);
 
 #endif
