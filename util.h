@@ -4,5 +4,7 @@
 #include <string>
 
 std::string makeNonce();
+std::string pad(std::string &packet);
+std::string unPad(std::string &packet);
 
 #endif
