@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
     std::string buf;
     while (1) {
         printf("atm> ");
-        cin >> buf;
+        std::cin >> buf;
         //fgets(buf, 79, stdin);
         //buf[strlen(buf)-1] = '\0';    //trim off trailing newline
 
