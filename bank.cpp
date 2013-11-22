@@ -12,9 +12,14 @@
 #include <pthread.h>
 #include <string.h>
 #include <regex.h>
+#include <crypt.h>
+#include <vector>
+#include "acct.h"
 
 void* client_thread(void* arg);
 void* console_thread(void* arg);
+
+std::vector <Acct> users;
 
 int main(int argc, char* argv[])
 {
@@ -23,6 +28,11 @@ int main(int argc, char* argv[])
 		printf("Usage: bank listen-port\n");
 		return -1;
 	}
+
+    //Setup bank data first
+    users.push_back( Acct("Alice", "salty", 100) );
+    //users[1] = {"Bob", "salty", 50 };
+    //users[2] = { "Eve", "salty", 0 };
 	
 	unsigned short ourport = atoi(argv[1]);
 	
@@ -120,6 +130,14 @@ void* client_thread(void* arg)
 	return NULL;
 }
 
+void* deposit( char* msgbuf )
+{
+}
+
+void* balance( char* msgbuf )
+{
+}
+
 void* console_thread(void* arg)
 {
 	char buf[80];
@@ -145,6 +163,7 @@ void* console_thread(void* arg)
         if( !reti ){
             //Deposit command
             printf("Deposit command\n");
+            deposit( msgbuf );
             continue;
         }
         else if( reti == REG_NOMATCH ){
@@ -160,6 +179,7 @@ void* console_thread(void* arg)
         if( !reti ){
             //Balance command
             printf("Balance command\n");
+            balance( msgbuf );
             continue;
         }
         else if( reti == REG_NOMATCH ){
