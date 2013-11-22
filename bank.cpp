@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <string.h>
+#include <regex.h>
 
 void* client_thread(void* arg);
 void* console_thread(void* arg);
@@ -122,12 +123,52 @@ void* client_thread(void* arg)
 void* console_thread(void* arg)
 {
 	char buf[80];
+
+    // Compile regular expressions
+    regex_t depositregex;
+    regex_t balanceregex;
+    int reti;
+    reti = regcomp(&depositregex, "^deposit [a-zA-Z]+ [0-9]+$", REG_EXTENDED);
+    if( reti ){ fprintf(stderr, "Could not compile regex\n"); exit(1); }
+    reti = regcomp(&balanceregex, "^balance [a-zA-Z]+$", REG_EXTENDED);
+    if( reti ){ fprintf(stderr, "Could not compile regex\n"); exit(1); }
+
 	while(1)
 	{
 		printf("bank> ");
 		fgets(buf, 79, stdin);
 		buf[strlen(buf)-1] = '\0';	//trim off trailing newline
+        char msgbuf[100]; //msg buffer for regex errors
 		
 		//TODO: your input parsing code has to go here
+        reti = regexec(&depositregex, buf, 0, NULL, 0);
+        if( !reti ){
+            //Deposit command
+            printf("Deposit command\n");
+            continue;
+        }
+        else if( reti == REG_NOMATCH ){
+            //Not deposit
+        }
+        else{
+                regerror(reti, &depositregex, msgbuf, sizeof(msgbuf));
+                fprintf(stderr, "Regex match failed: %s\n", msgbuf);
+                exit(1);
+        }
+
+        reti = regexec(&balanceregex, buf, 0, NULL, 0);
+        if( !reti ){
+            //Balance command
+            printf("Balance command\n");
+            continue;
+        }
+        else if( reti == REG_NOMATCH ){
+            //Not balance
+        }
+        else{
+                regerror(reti, &depositregex, msgbuf, sizeof(msgbuf));
+                fprintf(stderr, "Regex match failed: %s\n", msgbuf);
+                exit(1);
+        }
 	}
 }
