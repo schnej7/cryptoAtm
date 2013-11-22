@@ -43,6 +43,8 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    
+
     //input loop
     std::string buf;
     while (1) {
