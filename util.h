@@ -2,9 +2,11 @@
 #define __util_h__
 
 #include <string>
+using std::string;
 
-std::string makeNonce();
-std::string pad(std::string &packet);
-std::string unPad(std::string &packet);
+string createPacket(string &nonce, string &message, string &newNonce);
+string makeNonce();
+string pad(std::string &packet);
+string unPad(std::string &packet);
 
 #endif
