@@ -19,6 +19,7 @@
 void* client_thread(void* arg);
 void* console_thread(void* arg);
 
+//Used to store the accounts
 std::vector <Acct> users;
 
 int main(int argc, char* argv[])
@@ -31,8 +32,8 @@ int main(int argc, char* argv[])
 
     //Setup bank data first
     users.push_back( Acct("Alice", "salty", 100) );
-    //users[1] = {"Bob", "salty", 50 };
-    //users[2] = { "Eve", "salty", 0 };
+    users.push_back( Acct("Bob", "salty", 50) );
+    users.push_back( Acct("Eve", "salty", 0) );
 	
 	unsigned short ourport = atoi(argv[1]);
 	
@@ -136,6 +137,15 @@ void* deposit( char* msgbuf )
 
 void* balance( char* msgbuf )
 {
+    std::string messageString( msgbuf );
+    int begin = strlen( "balance " );
+    int length = messageString.length();
+    std::string user = messageString.substr( begin, length );
+    for( int i = 0; i < users.size(); i++ ){
+        if( users[i].getName() == user ){
+                printf("%d\n", users[i].getBalance());
+        }
+    }
 }
 
 void* console_thread(void* arg)
@@ -158,12 +168,11 @@ void* console_thread(void* arg)
 		buf[strlen(buf)-1] = '\0';	//trim off trailing newline
         char msgbuf[100]; //msg buffer for regex errors
 		
-		//TODO: your input parsing code has to go here
         reti = regexec(&depositregex, buf, 0, NULL, 0);
         if( !reti ){
             //Deposit command
             printf("Deposit command\n");
-            deposit( msgbuf );
+            deposit( buf );
             continue;
         }
         else if( reti == REG_NOMATCH ){
@@ -179,7 +188,7 @@ void* console_thread(void* arg)
         if( !reti ){
             //Balance command
             printf("Balance command\n");
-            balance( msgbuf );
+            balance( buf );
             continue;
         }
         else if( reti == REG_NOMATCH ){
