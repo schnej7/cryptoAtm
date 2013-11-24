@@ -188,7 +188,6 @@ void* console_thread(void* arg)
         reti = regexec(&depositregex, buf, 0, NULL, 0);
         if( !reti ){
             //Deposit command
-            printf("Deposit command\n");
             deposit( buf );
             continue;
         }
@@ -204,7 +203,6 @@ void* console_thread(void* arg)
         reti = regexec(&balanceregex, buf, 0, NULL, 0);
         if( !reti ){
             //Balance command
-            printf("Balance command\n");
             balance( buf );
             continue;
         }
