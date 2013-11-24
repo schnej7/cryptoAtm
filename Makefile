@@ -1,12 +1,12 @@
 all:
 	g++ atm.cpp -m64 -o atm -lcryptopp
-	g++ bank.cpp -m64 -o bank -lpthread -lcryptopp
+	g++ bank.cpp acct.cpp -m64 -o bank -lpthread -lcryptopp
 	g++ proxy.cpp -m64 -o proxy -lpthread
 	g++ util.cpp test.cpp -m64 -o util -lcryptopp
 
 32:
 	g++ atm.cpp -m32 -o atm -lcryptopp
-	g++ bank.cpp -m32 -o bank -lpthread -lcryptopp
+	g++ bank.cpp acct.cpp -m32 -o bank -lpthread -lcryptopp
 	g++ proxy.cpp -m32 -o proxy -lpthread
 	g++ util.cpp test.cpp -m32 -o util -lcryptopp
 

@@ -12,9 +12,15 @@
 #include <pthread.h>
 #include <string.h>
 #include <regex.h>
+#include <crypt.h>
+#include <vector>
+#include "acct.h"
 
 void* client_thread(void* arg);
 void* console_thread(void* arg);
+
+//Used to store the accounts
+std::vector <Acct> users;
 
 int main(int argc, char* argv[])
 {
@@ -23,6 +29,11 @@ int main(int argc, char* argv[])
 		printf("Usage: bank listen-port\n");
 		return -1;
 	}
+
+    //Setup bank data first
+    users.push_back( Acct("Alice", "salty", 100) );
+    users.push_back( Acct("Bob", "salty", 50) );
+    users.push_back( Acct("Eve", "salty", 0) );
 	
 	unsigned short ourport = atoi(argv[1]);
 	
@@ -120,6 +131,40 @@ void* client_thread(void* arg)
 	return NULL;
 }
 
+void* deposit( char* msgbuf )
+{
+    std::string messageString( msgbuf );
+    int begin = strlen( "deposit " );
+    int length = messageString.length();
+    int spaceLoc = 0;
+    for( int i = begin; i < messageString.length(); i++ ){
+        if( messageString[i] == ' ' ){
+            spaceLoc = i;
+            break;
+        }
+    }
+    std::string user = messageString.substr( begin, spaceLoc - begin );
+    std::string amount = messageString.substr( spaceLoc + 1, length - spaceLoc );
+    for( int i = 0; i < users.size(); i++ ){
+        if( users[i].getName() == user ){
+            users[i].setBalance( users[i].getBalance() + atoi(amount.c_str()) );
+        }
+    }
+}
+
+void* balance( char* msgbuf )
+{
+    std::string messageString( msgbuf );
+    int begin = strlen( "balance " );
+    int length = messageString.length() - begin;
+    std::string user = messageString.substr( begin, length );
+    for( int i = 0; i < users.size(); i++ ){
+        if( users[i].getName() == user ){
+                printf("%d\n", users[i].getBalance());
+        }
+    }
+}
+
 void* console_thread(void* arg)
 {
 	char buf[80];
@@ -140,11 +185,10 @@ void* console_thread(void* arg)
 		buf[strlen(buf)-1] = '\0';	//trim off trailing newline
         char msgbuf[100]; //msg buffer for regex errors
 		
-		//TODO: your input parsing code has to go here
         reti = regexec(&depositregex, buf, 0, NULL, 0);
         if( !reti ){
             //Deposit command
-            printf("Deposit command\n");
+            deposit( buf );
             continue;
         }
         else if( reti == REG_NOMATCH ){
@@ -159,7 +203,7 @@ void* console_thread(void* arg)
         reti = regexec(&balanceregex, buf, 0, NULL, 0);
         if( !reti ){
             //Balance command
-            printf("Balance command\n");
+            balance( buf );
             continue;
         }
         else if( reti == REG_NOMATCH ){

@@ -1,6 +1,8 @@
 *~
+*.swp
 atm
 bank
 proxy
 util
 test.cpp
+acct
