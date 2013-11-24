@@ -133,13 +133,30 @@ void* client_thread(void* arg)
 
 void* deposit( char* msgbuf )
 {
+    std::string messageString( msgbuf );
+    int begin = strlen( "deposit " );
+    int length = messageString.length();
+    int spaceLoc = 0;
+    for( int i = begin; i < messageString.length(); i++ ){
+        if( messageString[i] == ' ' ){
+            spaceLoc = i;
+            break;
+        }
+    }
+    std::string user = messageString.substr( begin, spaceLoc - begin );
+    std::string amount = messageString.substr( spaceLoc + 1, length - spaceLoc );
+    for( int i = 0; i < users.size(); i++ ){
+        if( users[i].getName() == user ){
+            users[i].setBalance( users[i].getBalance() + atoi(amount.c_str()) );
+        }
+    }
 }
 
 void* balance( char* msgbuf )
 {
     std::string messageString( msgbuf );
     int begin = strlen( "balance " );
-    int length = messageString.length();
+    int length = messageString.length() - begin;
     std::string user = messageString.substr( begin, length );
     for( int i = 0; i < users.size(); i++ ){
         if( users[i].getName() == user ){
