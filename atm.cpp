@@ -1,7 +1,7 @@
-/**
-    @file atm.cpp
-    @brief Top level ATM implementation file
- */
+/*
+@file modifiedatm.cpp
+@brief Top level ATM implementation file
+*/
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -9,7 +9,6 @@
 #include <netdb.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <string>
 #include <vector>
 #include <boost/foreach.hpp>
@@ -47,15 +46,20 @@ int main(int argc, char *argv[]) {
 
     //input loop
     std::string buf;
-    while (1) {
+    int attempt = 3;
+    while (1 && attempt != 0) {
         printf("atm> ");
         std::cin >> buf;
         //fgets(buf, 79, stdin);
-        //buf[strlen(buf)-1] = '\0';    //trim off trailing newline
+        //buf[strlen(buf)-1] = '\0'; //trim off trailing newline
 
         //TODO: your input parsing code has to put data here
         char packet[1024];
         int length = 1;
+        std::string username[11]; //10 char username plus null character
+        std::string pin[5]; // 4 digit PIN plus null character
+
+        bool isLoggedin = false; // User has not been validated
 
         std::vector<std::string> command;
 
@@ -83,6 +87,83 @@ int main(int argc, char *argv[]) {
             std::cout << "Not a valid command, please try again" << std::endl;
             continue;
         }
+
+
+        if ( command == "login" && !isLoggedin ){ //Only available to un-validated user
+            cout<<"Please enter your username: ";
+            cin>> username;
+            cout<<endl;
+
+            pin = getPin(true);
+        // Form login packet to send to bank
+        } //End login
+
+        if( command == "withdraw" && isLoggedin){
+            int withdrawAmount=0;
+            bool validAmount = false;
+
+            while(!validAmount){
+                cout<<"Please enter amount > $0 and <= $500 to withdraw: ";
+                cin>> withdrawAmount;
+
+                if (withdrawAmount > 0 && withdrawAmount <= 500 && isdigit(withdrawAmount))  // Check amount entered is formed of digits, non-negative, and < $500
+                    validAmount = true;
+                else{
+                    attempt--;    //Else decrement attempts left and prompt to retry
+                    cout<<"Invalid amount entered. Please try again: "<<endl;
+                }//End else
+            }//End while
+
+            //Form withdraw packet and send to bank
+        } //End withdraw
+
+        if( command == "deposit" && isLoggedin){
+            int depositAmount = 0;
+            bool validAmount = false;
+
+            while(!validAmount){
+                cout<<"Please enter amount < $ 32,767 to deposit: "; //Limit deposit to less than max int value
+                cin>> depositAmount;
+
+                if (depositAmount > 0 && depositAmount < 32767 && isdigit(depositAmount))  // Check amount entered is formed of digits, non-negative, and < 32767
+                    validAmount = true;
+                else{
+                    attempt--;    //Else decrement attempts left and prompt to retry
+                    cout<<"Invalid amount entered. Please try again: "<<endl;
+                }//End else
+            }//End while
+
+            //Form deposit packet and send to bank
+
+        } // End deposit
+
+        if( command == "transfer" && isLoggedin){
+            std::string transferToUsername[11];
+            int transferAmount = 0 ;
+            bool validAmount = false;
+
+            cout<<"Please enter username you wish to transfer money to: ";
+            cin>> transferToUsername;
+            cout<<endl;
+
+            cout<<"Please enter amount > 0 and <= $500 to transfer:"
+            cin>>
+
+            while(!validAmount){
+                cout<<"Please enter amount > 0 and <= $500 to transfer:"
+                cin>>transferAmount;
+
+                if (transferAmount > 0 && transferAmount <= 500 && isdigit(transferAmount))  // Check amount entered is formed of digits, non-negative, and < 32767
+                    validAmount = true;
+                else{
+                    attempt--;    //Else decrement attempts left and prompt to retry
+                    cout<<"Invalid amount entered. Please try again: "<<endl;
+                }//End else
+            }//End while
+
+            //Form transfer packet and send to bank
+
+        } // End transfer
 
         //TODO: other commands
 
@@ -112,6 +193,72 @@ int main(int argc, char *argv[]) {
     }
 
     //cleanup
+    if (attempt == 0)
+        cout<<"Too many errors.\n";
+    cout<<"Goodbye.\n";
+
     close(sock);
     return 0;
+}
+
+//Helper function for getpass() It reads in each character to be masked.
+int getch() {
+    int ch;
+    struct termios t_old, t_new;
+
+    tcgetattr(STDIN_FILENO, &t_old);
+    t_new = t_old;
+    t_new.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &t_new);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &t_old);
+    return ch;
+}
+
+//This function prompts for and receives the user-entered PIN (masked with *'s)
+std::string getPin(bool show_asterisk=true){
+    
+    const char BACKSPACE=127;
+    const char RETURN=10;
+
+    std::string password[5];
+    unsigned char ch=0;
+    bool validPin = false;
+
+    cout << "Please enter 4 digit pin: ";
+    while(!validPin){
+        while( (ch=getch())!= RETURN){
+            if(ch==BACKSPACE){
+                if(password.length()!=0){
+                    if(show_asterisk)
+                        cout <<"\b \b";
+                    password.resize(password.length()-1);
+                }
+            } //end if BACKSPACE
+            else{
+                password+=ch;
+                if(show_asterisk)
+                    cout <<'*';
+            } //end else
+        }// user finished entering Pin
+        validPin = is_number(password);
+        if(!validpin){
+            std::cout<<"\nInvalid PIN entered. Please try again using digits.\n"
+            attempt--;
+        }
+    }//User has entered a valid Pin attempt
+
+    pin[4]='\0'; // add null character to end of pin string
+    cout<<endl;
+    return password;
+}
+
+// This function checks the entered PIN to ensure it is a positive int (0-9)
+bool is_number(const std::string& s)
+{
+    std::string::const_iterator it = s.begin();
+    while (it != s.end() && std::isdigit(*it)) ++it;
+    return !s.empty() && it == s.end();
 }
