@@ -13,8 +13,18 @@
 #include <vector>
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
+#include <termios.h>
+#include <iostream>
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::cin;
 
 using namespace boost;
+
+std::string getPin(bool show_asterisk);
+bool is_number(const std::string& s);
+int attempt = 3;
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -46,7 +56,6 @@ int main(int argc, char *argv[]) {
 
     //input loop
     std::string buf;
-    int attempt = 3;
     while (1 && attempt != 0) {
         printf("atm> ");
         std::cin >> buf;
@@ -56,8 +65,8 @@ int main(int argc, char *argv[]) {
         //TODO: your input parsing code has to put data here
         char packet[1024];
         int length = 1;
-        std::string username[11]; //10 char username plus null character
-        std::string pin[5]; // 4 digit PIN plus null character
+        std::string username; //10 char username plus null character
+        std::string pin; // 4 digit PIN plus null character
 
         bool isLoggedin = false; // User has not been validated
 
@@ -89,16 +98,16 @@ int main(int argc, char *argv[]) {
         }
 
 
-        if ( command == "login" && !isLoggedin ){ //Only available to un-validated user
+        if ( command[0] == "login" && !isLoggedin ){ //Only available to un-validated user
             cout<<"Please enter your username: ";
-            cin>> username;
+            cin>>username;
             cout<<endl;
 
             pin = getPin(true);
         // Form login packet to send to bank
         } //End login
 
-        if( command == "withdraw" && isLoggedin){
+        if( command[0] == "withdraw" && isLoggedin){
             int withdrawAmount=0;
             bool validAmount = false;
 
@@ -117,7 +126,7 @@ int main(int argc, char *argv[]) {
             //Form withdraw packet and send to bank
         } //End withdraw
 
-        if( command == "deposit" && isLoggedin){
+        if( command[0] == "deposit" && isLoggedin){
             int depositAmount = 0;
             bool validAmount = false;
 
@@ -137,8 +146,8 @@ int main(int argc, char *argv[]) {
 
         } // End deposit
 
-        if( command == "transfer" && isLoggedin){
-            std::string transferToUsername[11];
+        if( command[0] == "transfer" && isLoggedin){
+            std::string transferToUsername;
             int transferAmount = 0 ;
             bool validAmount = false;
 
@@ -146,11 +155,11 @@ int main(int argc, char *argv[]) {
             cin>> transferToUsername;
             cout<<endl;
 
-            cout<<"Please enter amount > 0 and <= $500 to transfer:"
-            cin>>
+            cout<<"Please enter amount > 0 and <= $500 to transfer:";
+            cin>>transferAmount;
 
             while(!validAmount){
-                cout<<"Please enter amount > 0 and <= $500 to transfer:"
+                cout<<"Please enter amount > 0 and <= $500 to transfer:";
                 cin>>transferAmount;
 
                 if (transferAmount > 0 && transferAmount <= 500 && isdigit(transferAmount))  // Check amount entered is formed of digits, non-negative, and < 32767
@@ -204,7 +213,7 @@ int main(int argc, char *argv[]) {
 //Helper function for getpass() It reads in each character to be masked.
 int getch() {
     int ch;
-    struct termios t_old, t_new;
+    termios t_old, t_new;
 
     tcgetattr(STDIN_FILENO, &t_old);
     t_new = t_old;
@@ -223,7 +232,7 @@ std::string getPin(bool show_asterisk=true){
     const char BACKSPACE=127;
     const char RETURN=10;
 
-    std::string password[5];
+    std::string password;
     unsigned char ch=0;
     bool validPin = false;
 
@@ -244,13 +253,12 @@ std::string getPin(bool show_asterisk=true){
             } //end else
         }// user finished entering Pin
         validPin = is_number(password);
-        if(!validpin){
-            std::cout<<"\nInvalid PIN entered. Please try again using digits.\n"
+        if(!validPin){
+            std::cout<<"\nInvalid PIN entered. Please try again using digits." <<std::endl;
             attempt--;
         }
     }//User has entered a valid Pin attempt
 
-    pin[4]='\0'; // add null character to end of pin string
     cout<<endl;
     return password;
 }
