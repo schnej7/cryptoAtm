@@ -40,6 +40,10 @@ using CryptoPP::Exception;
 #include "includes/cryptopp/sha.h"
 using CryptoPP::SHA;
 
+#include "includes/cryptopp/md5.h"
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
+using CryptoPP::MD5;
+
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 
@@ -270,15 +274,15 @@ string generateSecret( int len ){
     return secret;
 }
 
-void* generateAESKey( byte* key, byte* iv ) {
-    byte a_key[ CryptoPP::AES::DEFAULT_KEYLENGTH ];
-    byte a_iv[ CryptoPP::AES::BLOCKSIZE ];
+byte* generateAESKey(string key) {
+	MD5 hash;
+	byte* digest = new byte[MD5::DIGESTSIZE];
 
-    key = a_key;
-    iv  = a_iv;
+	hash.Update((byte*)key.c_str(), key.length());
+	hash.Final(digest);
 
-    memset( a_key, 0x00, CryptoPP::AES::DEFAULT_KEYLENGTH );
-    memset( a_iv, 0x00, CryptoPP::AES::BLOCKSIZE );
+	return digest;
+	
 }
 
 string AESEncrypt( byte* key, byte* iv, string plaintext ){
