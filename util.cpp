@@ -1,5 +1,7 @@
 #include <iostream>
 using std::cerr;
+using std::cout;
+using std::endl;
 
 #include <sstream>
 using std::ostringstream;
@@ -21,6 +23,7 @@ using CryptoPP::GCM;
 using CryptoPP::SecByteBlock;
 
 #include "includes/cryptopp/filters.h"
+using CryptoPP::Redirector;
 using CryptoPP::StringSource;
 using CryptoPP::StringSink;
 using CryptoPP::AuthenticatedEncryptionFilter;
@@ -36,8 +39,11 @@ using CryptoPP::Exception;
 #include "includes/cryptopp/sha.h"
 using CryptoPP::SHA;
 
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
+
 //must be divisible by 16
-const int PACKETSIZE = 1024;
+//const int PACKETSIZE = 1024;
 
 string makeNonce() {
 
@@ -68,19 +74,55 @@ string makeNonce() {
   format before encryption should be something along the lines of:
   <IV> <nonce> <message> <new nonce> <padding>:
 */
-string createPacket(std::string &nonce, std::string &message, std::string &newNonce) {
-	
-	string packet;
-	string cipher;
+string createPacket(string &hexKey, string &nonce, string &message, string &newNonce) {
 	
 	string plain = nonce + "$" + message + "$" + newNonce;
 
-	plain = pad(plain);
+	string hexIV = generateAESIV();
+
+	string cipher = encryptAES(plain, hexKey, hexIV);
+
+	string packet = hexIV + "$" + cipher;
 	
+	return packet;
+}
+
+std::vector<string> openPacket(string &packet, string &key) {
+	string hexIV = packet.substr(0, 48);
+	string cipher = packet.substr(49);
+
+	string plain = decryptAES(cipher, key, hexIV);
+	plain = unPad(plain);
+
+	std::vector<string> results;
+	
+	boost::char_separator<char> sep("$");
+	boost::tokenizer<boost::char_separator<char> > tokens(plain, sep);
+	BOOST_FOREACH (const std::string & t, tokens) {
+		results.push_back(t);
+	}
+
+	return results;
+}
+
+string generateAESKey(){
+
 	AutoSeededRandomPool prng;
 
 	SecByteBlock key(AES::DEFAULT_KEYLENGTH);
 	prng.GenerateBlock(key, key.size());
+	
+	string hexKey;
+
+	StringSource ss(key, sizeof(key), true,
+	                new HexEncoder(new StringSink(hexKey)));
+
+	return hexKey;
+}
+
+string generateAESIV() {
+
+	AutoSeededRandomPool prng;
 
 	SecByteBlock iv(AES::BLOCKSIZE);
 	prng.GenerateBlock(iv, iv.size());
@@ -90,36 +132,91 @@ string createPacket(std::string &nonce, std::string &message, std::string &newNo
 	StringSource ss(iv, sizeof(iv), true,
 	                new HexEncoder(new StringSink(hexIV)));
 
+	return hexIV;
+
+}
+
+string encryptAES(string &plain, string &hexKey, string &hexIV){
+
+	string key;
+	string iv;
+	string cipher;
+	plain = pad(plain);
+
+	const int TAG_SIZE = 12;
+	
+	StringSource keyss(hexKey, true,
+	                   new HexDecoder(new StringSink(key)));
+
+	StringSource ivss(hexIV, true,
+	                  new HexDecoder(new StringSink(iv)));
+
+
 	try {
 		GCM<AES>::Encryption e;
-		e.SetKeyWithIV(key, key.size(), iv, iv.size());
+		e.SetKeyWithIV((byte*)key.data(), key.size(), (byte*)iv.data(), iv.size());
 
 		StringSource(plain, true,
 		             new AuthenticatedEncryptionFilter(e,
-			                                               new StringSink(cipher)));
+		                                               new StringSink(cipher),
+		                                               false, TAG_SIZE));
 		
 	}
 	catch (const Exception &e) {
-		cerr << e.what() << std::endl;
+		cerr << e.what() << endl;
 		return "";
 	}
 
-	packet = hexIV + "$" + cipher;
-	
-	return packet;
+	return cipher;
+
 }
 
-std::vector<string> openPacket(string &packet) {
+string decryptAES(string &cipher, string &hexKey, string &hexIV) {
+
+	string iv;
+	string plain;
+	string key;
+
+	const int TAG_SIZE = 12;
+
+	StringSource keyss(hexIV, true,
+	                   new HexDecoder(new StringSink(iv)));
+
+	StringSource ivss(hexKey, true,
+	                  new HexDecoder(new StringSink(key)));
+
+	try {
+		GCM<AES>::Decryption d;
+		d.SetKeyWithIV((byte*)key.data(), key.size(), (byte*)iv.data(), iv.size());
+
+		AuthenticatedDecryptionFilter df(d, new StringSink(plain),
+		                                 AuthenticatedDecryptionFilter::DEFAULT_FLAGS,
+		                                 TAG_SIZE);
+
+		StringSource(cipher, true, new Redirector(df));
+
+		if(true == df.GetLastResult()){
+			return plain;
+		}
+		else {
+			return "";
+		}
+
+	}
+	catch(const Exception& e) {
+		cerr << e.what() << endl;
+		return "";
+	}
 
 }
 
 string pad(string &packet) {
 
 	//std::cout << "Before pad size: "<< packet << " is " << (int)packet.size() << " characters" << std::endl;
-    if (packet.size() < 1006) {
+    if (packet.size() < 959) {
         packet += "~";
     }
-    while (packet.size() < 1006) {
+    while (packet.size() < 959) {
         packet += "a";
     }
     packet += "\0";
