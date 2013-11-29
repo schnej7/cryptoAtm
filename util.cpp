@@ -33,6 +33,9 @@ using CryptoPP::HexDecoder;
 #include "includes/cryptopp/cryptlib.h"
 using CryptoPP::Exception;
 
+#include "includes/cryptopp/sha.h"
+using CryptoPP::SHA;
+
 //must be divisible by 16
 const int PACKETSIZE = 1024;
 
@@ -143,4 +146,50 @@ string unPad(string &packet){
 		packet = packet.substr(0,position);
 	}
 	return packet;
+}
+
+string SHA1( string data ){
+    CryptoPP::SHA1 sha1;
+    std::string hash = "";
+    CryptoPP::StringSource(data, true, new CryptoPP::HashFilter(sha1, new CryptoPP::HexEncoder(new CryptoPP::StringSink(hash))));
+    return hash;
+}
+
+string compoundSHA1( string data1, string data2 ){
+    return SHA1( SHA1( data1 ) + SHA1( data2 ) );
+}
+
+string updateSHA1( string hash, string data ){
+    return SHA1( hash + SHA1( data ) );
+}
+
+string generateSecret( int len ){
+    std::string secret = "";
+    static const char alphanum[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    for( int i = 0; i < len; i++ ){
+        secret += alphanum[ rand() % (sizeof(alphanum) - 1) ];
+    }
+    return secret;
+}
+
+void* generateAESKey( byte* key, byte* iv ){
+    byte a_key[ CryptoPP::AES::DEFAULT_KEYLENGTH ];
+    byte a_iv[ CryptoPP::AES::BLOCKSIZE ];
+
+    key = a_key;
+    iv  = a_iv;
+
+    memset( a_key, 0x00, CryptoPP::AES::DEFAULT_KEYLENGTH );
+    memset( a_iv, 0x00, CryptoPP::AES::BLOCKSIZE );
+}
+
+string AESEncrypt( byte* key, byte* iv, string plaintext ){
+    string ciphertext;
+    CryptoPP::AES::Encryption aesEncryption(key, CryptoPP::AES::DEFAULT_KEYLENGTH);
+    CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption( aesEncryption, iv );
+
+    CryptoPP::StreamTransformationFilter stfEncryptor(cbcEncryption, new CryptoPP::StringSink( ciphertext ) );
+    stfEncryptor.Put( reinterpret_cast<const unsigned char*>( plaintext.c_str() ), plaintext.length() + 1 );
+    stfEncryptor.MessageEnd();
+    return ciphertext;
 }

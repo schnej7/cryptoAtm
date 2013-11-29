@@ -15,12 +15,14 @@
 #include <crypt.h>
 #include <vector>
 #include "acct.h"
+#include "util.h"
 
 void* client_thread(void* arg);
 void* console_thread(void* arg);
 
 //Used to store the accounts
 std::vector <Acct> users;
+std::string bankSecret = generateSecret( 40 );
 
 int main(int argc, char* argv[])
 {
@@ -31,9 +33,9 @@ int main(int argc, char* argv[])
 	}
 
     //Setup bank data first
-    users.push_back( Acct("Alice", "salty", 100) );
-    users.push_back( Acct("Bob", "salty", 50) );
-    users.push_back( Acct("Eve", "salty", 0) );
+    users.push_back( Acct("Alice", "1234", 100, bankSecret) );
+    users.push_back( Acct("Bob", "6543", 50, bankSecret) );
+    users.push_back( Acct("Eve", "1122", 0, bankSecret) );
 	
 	unsigned short ourport = atoi(argv[1]);
 	
@@ -146,7 +148,7 @@ void* deposit( char* msgbuf )
     std::string user = messageString.substr( begin, spaceLoc - begin );
     std::string amount = messageString.substr( spaceLoc + 1, length - spaceLoc );
     for( int i = 0; i < users.size(); i++ ){
-        if( users[i].getName() == user ){
+        if( users[i].compareName(user, bankSecret) ){
             users[i].setBalance( users[i].getBalance() + atoi(amount.c_str()) );
         }
     }
@@ -159,7 +161,7 @@ void* balance( char* msgbuf )
     int length = messageString.length() - begin;
     std::string user = messageString.substr( begin, length );
     for( int i = 0; i < users.size(); i++ ){
-        if( users[i].getName() == user ){
+        if( users[i].compareName(user, bankSecret) ){
                 printf("%d\n", users[i].getBalance());
         }
     }
