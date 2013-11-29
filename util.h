@@ -22,5 +22,7 @@ string updateSHA1( string hash, string data );
 string generateSecret( int len );
 void* generateAESKey( byte *key, byte *iv );
 string AESEncrypt( byte* key, byte* iv, string plaintext );
+string AESDecrypt( byte* key, byte* iv, string ctxt );
+string itos( int i );
 
 #endif

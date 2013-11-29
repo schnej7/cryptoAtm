@@ -5,6 +5,7 @@ using std::endl;
 
 #include <sstream>
 using std::ostringstream;
+using std::stringstream;
 
 #include <string>
 using std::string;
@@ -289,4 +290,14 @@ string AESEncrypt( byte* key, byte* iv, string plaintext ){
     stfEncryptor.Put( reinterpret_cast<const unsigned char*>( plaintext.c_str() ), plaintext.length() + 1 );
     stfEncryptor.MessageEnd();
     return ciphertext;
+}
+
+string AESDecrypt( byte* key, byte* iv, string ctxt ){
+    return ctxt;
+}
+
+string itos( int i ){
+    stringstream ss;
+    ss << i;
+    return ss.str();
 }

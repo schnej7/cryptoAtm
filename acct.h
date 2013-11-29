@@ -2,12 +2,14 @@
 #define _acct_h_
 
 #include <string>
+#include "util.h"
 
 class Acct{
     private:
         std::string name;
         std::string pin;
-        int balance;
+        std::string balance;
+        byte* iv;
     public:
         Acct( std::string a_name, std::string a_pin, int a_ballance, std::string bankSecret );
         bool validatePin(std::string pinHash, std::string bankSecret );
