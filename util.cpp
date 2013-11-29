@@ -270,7 +270,7 @@ string generateSecret( int len ){
     return secret;
 }
 
-void* generateAESKey( byte* key, byte* iv ){
+void* generateAESKey( byte* key, byte* iv ) {
     byte a_key[ CryptoPP::AES::DEFAULT_KEYLENGTH ];
     byte a_iv[ CryptoPP::AES::BLOCKSIZE ];
 
@@ -282,18 +282,56 @@ void* generateAESKey( byte* key, byte* iv ){
 }
 
 string AESEncrypt( byte* key, byte* iv, string plaintext ){
-    string ciphertext;
-    CryptoPP::AES::Encryption aesEncryption(key, CryptoPP::AES::DEFAULT_KEYLENGTH);
-    CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption( aesEncryption, iv );
 
-    CryptoPP::StreamTransformationFilter stfEncryptor(cbcEncryption, new CryptoPP::StringSink( ciphertext ) );
-    stfEncryptor.Put( reinterpret_cast<const unsigned char*>( plaintext.c_str() ), plaintext.length() + 1 );
-    stfEncryptor.MessageEnd();
-    return ciphertext;
+	string cipher;
+
+	const int TAG_SIZE = 12;
+	
+	try {
+		GCM<AES>::Encryption e;
+		e.SetKeyWithIV(key, AES::DEFAULT_KEYLENGTH, iv, sizeof(iv));
+
+		StringSource(plaintext, true,
+		             new AuthenticatedEncryptionFilter(e,
+		                                               new StringSink(cipher),
+		                                               false, TAG_SIZE));
+		
+	}
+	catch (const Exception &e) {
+		cerr << e.what() << endl;
+		return "";
+	}
+
+	return cipher;
 }
 
 string AESDecrypt( byte* key, byte* iv, string ctxt ){
-    return ctxt;
+	string plain;
+
+	const int TAG_SIZE = 12;
+
+	try {
+		GCM<AES>::Decryption d;
+		d.SetKeyWithIV(key, AES::DEFAULT_KEYLENGTH, iv, sizeof(iv));
+
+		AuthenticatedDecryptionFilter df(d, new StringSink(plain),
+		                                 AuthenticatedDecryptionFilter::DEFAULT_FLAGS,
+		                                 TAG_SIZE);
+
+		StringSource(ctxt, true, new Redirector(df));
+
+		if(true == df.GetLastResult()){
+			return plain;
+		}
+		else {
+			return "";
+		}
+
+	}
+	catch(const Exception& e) {
+		cerr << e.what() << endl;
+		return "";
+	}
 }
 
 string itos( int i ){
