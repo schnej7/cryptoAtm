@@ -11,20 +11,18 @@ Acct::Acct( std::string a_name, std::string a_pin, int a_balance, std::string ba
     this->pin = compoundSHA1( a_pin, bankSecret );
 
     //Generate a random IV
-    byte ivBytes[16];
-    strcpy( (char*) ivBytes, generateSecret( 16 ).c_str() );
-    this->iv = ivBytes;
+    this->iv =  generateSecret( 16 );
 
-    //Convert the pin hash to bytes
-    byte pinBytes[160];
-    strcpy( (char*) pinBytes, this->pin.c_str() );
+    //Convert IV to bytes
+    byte ivBytes[16];
+    strcpy( (char*) ivBytes, this->iv.c_str() );
 
     //Generate an AES key to encrypt the name and balance
-    byte* tempAESKey = (byte*) generateAESKey( pinBytes, this->iv );
+    byte* tempAESKey = generateAESKey( this->pin );
 
     //Encrypt and store name and balance
-    this->name = AESEncrypt( tempAESKey, this->iv, a_name );
-    this->balance = AESEncrypt( tempAESKey, this->iv, itos(a_balance) );
+    this->name = AESEncrypt( tempAESKey, ivBytes, a_name );
+    this->balance = AESEncrypt( tempAESKey, ivBytes, itos(a_balance) );
 }
 
 bool Acct::validatePin(std::string pinHash, std::string bankSecret){
@@ -32,58 +30,63 @@ bool Acct::validatePin(std::string pinHash, std::string bankSecret){
 }
 
 bool Acct::compareName(std::string a_name, std::string bankSecret){
-    //Convert the pin hash to bytes
-    byte pinBytes[160];
-    strcpy( (char*) pinBytes, this->pin.c_str() );
-
     //Generate an AES key
-    byte* tempAESKey = (byte*) generateAESKey( pinBytes, this->iv );
+    byte* tempAESKey = generateAESKey( this->pin );
 
-    printf("%s, %s\n", this->name.c_str(), AESEncrypt( tempAESKey, this->iv, a_name ).c_str() );
+    //Convert IV to bytes
+    byte ivBytes[16];
+    strcpy( (char*) ivBytes, this->iv.c_str() );
 
-    return this->name == AESEncrypt( tempAESKey, this->iv, a_name );
+    return this->name == AESEncrypt( tempAESKey, ivBytes, a_name );
 }
 
 int Acct::getBalance(){
-    //Convert the pin hash to bytes
-    byte pinBytes[160];
-    strcpy( (char*) pinBytes, this->pin.c_str() );
-
     //Generate an AES key
-    byte* tempAESKey = (byte*) generateAESKey( pinBytes, this->iv );
+    byte* tempAESKey = generateAESKey( this->pin );
 
-    return std::atoi( AESDecrypt( tempAESKey, this->iv, this->balance ).c_str() );
+    //Convert IV to bytes
+    byte ivBytes[16];
+    strcpy( (char*) ivBytes, this->iv.c_str() );
+
+    return std::atoi( AESDecrypt( tempAESKey, ivBytes , this->balance ).c_str() );
 }
 
 void Acct::setBalance( int a_balance ){
-    //Convert the pin hash to bytes
-    byte pinBytes[160];
-    strcpy( (char*) pinBytes, this->pin.c_str() );
-
     //Generate an AES key
-    byte* tempAESKey = (byte*) generateAESKey( pinBytes, this->iv );
+    byte* tempAESKey = generateAESKey( this->pin );
 
-    this->balance = AESEncrypt( tempAESKey, this->iv, itos(a_balance) );
+    //Convert IV to bytes
+    byte ivBytes[16];
+    strcpy( (char*) ivBytes, this->iv.c_str() );
+
+    this->balance = AESEncrypt( tempAESKey, ivBytes, itos(a_balance) );
 }
 
 int Acct::getBalanceSecure(std::string pinHash, std::string bankSecret){
-    //Convert the pin hash to bytes
-    byte pinBytes[160];
-    strcpy( (char*) pinBytes, updateSHA1( pinHash, bankSecret ).c_str() );
-
     //Generate an AES key
-    byte* tempAESKey = (byte*) generateAESKey( pinBytes, this->iv );
+    byte* tempAESKey = generateAESKey( updateSHA1( pinHash, bankSecret ) );
 
-    return atoi( AESDecrypt( tempAESKey, this->iv, this->balance ).c_str() );
+    //Convert IV to bytes
+    byte ivBytes[16];
+    strcpy( (char*) ivBytes, this->iv.c_str() );
+
+    if( this->validatePin( pinHash, bankSecret ) ){
+        return atoi( AESDecrypt( tempAESKey, ivBytes, this->balance ).c_str() );
+    }
+    else{
+        return -1;
+    }
 }
 
 void Acct::setBalanceSecure( int a_balance, std::string pinHash, std::string bankSecret ){
-    //Convert the pin hash to bytes
-    byte pinBytes[160];
-    strcpy( (char*) pinBytes, this->pin.c_str() );
-
     //Generate an AES key
-    byte* tempAESKey = (byte*) generateAESKey( pinBytes, this->iv );
+    byte* tempAESKey = generateAESKey( updateSHA1( pinHash, bankSecret ) );
 
-    this->balance = AESEncrypt( tempAESKey, this->iv, itos(a_balance) );
+    //Convert IV to bytes
+    byte ivBytes[16];
+    strcpy( (char*) ivBytes, this->iv.c_str() );
+
+    if( this->validatePin( pinHash, bankSecret ) ){
+        this->balance = AESEncrypt( tempAESKey, ivBytes, itos(a_balance) );
+    }
 }

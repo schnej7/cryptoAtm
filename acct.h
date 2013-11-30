@@ -9,7 +9,7 @@ class Acct{
         std::string name;
         std::string pin;
         std::string balance;
-        byte* iv;
+        std::string iv;
     public:
         Acct( std::string a_name, std::string a_pin, int a_ballance, std::string bankSecret );
         bool validatePin(std::string pinHash, std::string bankSecret );
