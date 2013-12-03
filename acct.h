@@ -10,8 +10,8 @@ class Acct{
         std::string pin;
         std::string balance;
         std::string iv;
-        bool loggedIn;
     public:
+        bool loggedIn;
         Acct( std::string a_name, std::string a_pin, int a_ballance, std::string bankSecret );
         bool validatePin(std::string pinHash, std::string bankSecret );
         bool compareName( std::string a_name,  std::string bankSecret );
