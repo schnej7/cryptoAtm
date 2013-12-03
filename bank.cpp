@@ -146,20 +146,25 @@ void *client_thread(void *arg) {
 
     //input loop
     while (1) {
-	    string message;
+	    string message = "";
         //read the packet from the ATM
 	    recvPacket(csock, length, packet);
-	    vector<string> openedPacket = openPacket(packet, sessionKey);
+	    vector<string> results = openPacket(packet, sessionKey);
 
-	    if(!(openedPacket[2] == bankNonce)){
-		    cout << "ATM SECURITY COMPROMISED!" << endl;
-		    keysInUse[atm] = false;
-		    close(csock);
-	    }
+	    /*for(int i = 0; i < results.size(); i++){
+		    cout << results[i] << endl;
+		    }*/
 	    
-	    vector<string> command = parseCommand(openedPacket[1]);
+	    if(!(results[2] == bankNonce)){
+		    cout << "ATM " << atm <<" SECURITY COMPROMISED!" << endl;
+		    keysInUse[atm] = false;
+		    return NULL;
+	    }
+
+	    vector<string> command = parseCommand(results[1]);
 
 	    if(command[0] == "login"){
+		    //cout << "inside login" << endl;
 		    string username = command[1];
 		    string pinHash = command[2];
 		    bool validUser = false;
@@ -171,7 +176,7 @@ void *client_thread(void *arg) {
 			}
 			if(validUser){
 				if(users[current].validatePin(pinHash, bankSecret)) {
-					message = "sucess";					
+					message = "success";					
 				}
 				else {
 					message = "failure";
@@ -189,7 +194,7 @@ void *client_thread(void *arg) {
 	    }
 	    else if(command[0] == "logout"){
 		    keysInUse[atm] = false;
-		    close(csock);
+		    break;
 	    }
 
         //TODO: process packet data
@@ -198,7 +203,7 @@ void *client_thread(void *arg) {
 
         //send the new packet back to the client
 	    bankNonce = makeNonce();
-	    packet = createPacket(sessionKey, openedPacket[0], message, bankNonce);
+	    packet = createPacket(sessionKey, results[0], message, bankNonce);
 	    
 	    sendPacket(csock, length, packet);
 
@@ -206,7 +211,6 @@ void *client_thread(void *arg) {
 
     printf("[bank] client ID #%d disconnected\n", csock);
 
-    keysInUse[atm] = false;
     close(csock);
     return NULL;
 }

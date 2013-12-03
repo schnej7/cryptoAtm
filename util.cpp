@@ -79,13 +79,14 @@ string makeNonce() {
 
 vector<string> parseCommand(string& buf) {
 
-	std::vector<std::string> command;
+	vector<string> command;
 
 	char_separator<char> sep(" ");
 	tokenizer<char_separator<char> > tokens(buf, sep);
-	BOOST_FOREACH (const std::string & t, tokens) {
+	BOOST_FOREACH (const string & t, tokens) {
 		command.push_back(t);
 	}
+	return command;
 }
 
 bool sendPacket(int sock, int length, string &packet) {
@@ -161,7 +162,7 @@ std::vector<string> openPacket(string &packet, string &key) {
 
     boost::char_separator<char> sep("$");
     boost::tokenizer<boost::char_separator<char> > tokens(plain, sep);
-    BOOST_FOREACH (const std::string & t, tokens) {
+    BOOST_FOREACH (const string & t, tokens) {
         results.push_back(t);
     }
 

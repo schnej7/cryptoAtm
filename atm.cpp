@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
 
     //input loop
     std::string buf;
+	bool isLoggedin = false; // User has not been validated
     while (1 && attempt != 0) {
         printf("atm> ");
         std::cin >> buf;
@@ -84,8 +85,6 @@ int main(int argc, char *argv[]) {
         int length = 1024;
         std::string username; //10 char username plus null character
         std::string pin; // 4 digit PIN plus null character
-
-        bool isLoggedin = false; // User has not been validated
 
         std::vector<std::string> command;
 
@@ -114,8 +113,14 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        if ( command[0] == "login" && !isLoggedin ) { //Only available to un-validated user
+        if (command.size() == 1 && command[0] == "login") { //Only available to un-validated user
+	        if(isLoggedin) {
+				cout << "\nYou are already logged in!" << endl;
+				continue;
+	        }
+
             cout << "Please enter your username: ";
+
             cin >> username;
             while (username.size() > 10) {
                 cout << "Usernames are 10 characters or less!" << endl;
@@ -136,20 +141,26 @@ int main(int argc, char *argv[]) {
 
             if (results[0] != atmNonce) {
                 return false;
-            } else if (results[1] != "failure") {
+            } else if (results[1] == "failure") {
                 cout << "\nInvalid Username or Pin!" << endl;
                 attempt --;
             } else if ( results[1] == "success") {
-                cout << "Successfully logged in!" << endl;
+                cout << "\nSuccessfully logged in!" << endl;
                 isLoggedin = true;
             }
+            bankNonce = results[2];
 
-        } else {
-            cout << "You are already logged in" << endl;
+        }
+
+        else if(command[0] == "logout" && command.size() == 1){
+	        atmNonce = makeNonce();
+	        message = "logout";
+	        packet = createPacket(sessionKey, atmNonce, message, bankNonce);
+	        break;
         }
         //End login
 
-        if ( command[0] == "withdraw" && isLoggedin) {
+        else if ( command[0] == "withdraw" && isLoggedin) {
             int withdrawAmount = 0;
             bool validAmount = false;
 
@@ -168,7 +179,7 @@ int main(int argc, char *argv[]) {
             //Form withdraw packet and send to bank
         } //End withdraw
 
-        if ( command[0] == "transfer" && isLoggedin) {
+        else if ( command[0] == "transfer" && isLoggedin) {
             std::string transferToUsername;
             int transferAmount = 0 ;
             bool validAmount = false;
@@ -202,13 +213,12 @@ int main(int argc, char *argv[]) {
         cout << "Too many errors.\n";
     cout << "Goodbye.\n";
 
-    close(sock);
+    //close(sock);
     return 0;
 }
 
 bool handshake(int csock, std::string atmNumber) {
 
-    bankNonce = "";
     atmNonce = makeNonce();
     message = "handshake";
     int length = 1024;
@@ -256,6 +266,7 @@ bool handshake(int csock, std::string atmNumber) {
     } else if (results[1] != "handshakeResponse") {
         return false;
     }
+    bankNonce = results[2];
 
     return true;
 }
