@@ -4,6 +4,7 @@
 #include <string>
 #include <stdio.h>
 #include <string.h>
+#include <climits>
 #include <cstdlib>
 
 Acct::Acct( std::string a_name, std::string a_pin, int a_balance, std::string bankSecret ){
@@ -52,6 +53,10 @@ int Acct::getBalance(){
 }
 
 void Acct::setBalance( int a_balance ){
+    if( a_balance < 0 || a_balance > INT_MAX ){
+        return;
+    }
+
     //Generate an AES key
     byte* tempAESKey = generateAESKey( this->pin );
 
@@ -63,15 +68,8 @@ void Acct::setBalance( int a_balance ){
 }
 
 int Acct::getBalanceSecure(std::string pinHash, std::string bankSecret){
-    //Generate an AES key
-    byte* tempAESKey = generateAESKey( updateSHA1( pinHash, bankSecret ) );
-
-    //Convert IV to bytes
-    byte ivBytes[16];
-    strcpy( (char*) ivBytes, this->iv.c_str() );
-
     if( this->validatePin( pinHash, bankSecret ) ){
-        return atoi( AESDecrypt( tempAESKey, ivBytes, this->balance ).c_str() );
+        return this->getBalance();
     }
     else{
         return -1;
@@ -79,14 +77,7 @@ int Acct::getBalanceSecure(std::string pinHash, std::string bankSecret){
 }
 
 void Acct::setBalanceSecure( int a_balance, std::string pinHash, std::string bankSecret ){
-    //Generate an AES key
-    byte* tempAESKey = generateAESKey( updateSHA1( pinHash, bankSecret ) );
-
-    //Convert IV to bytes
-    byte ivBytes[16];
-    strcpy( (char*) ivBytes, this->iv.c_str() );
-
     if( this->validatePin( pinHash, bankSecret ) ){
-        this->balance = AESEncrypt( tempAESKey, ivBytes, itos(a_balance) );
+        this->setBalance( a_balance );
     }
 }
