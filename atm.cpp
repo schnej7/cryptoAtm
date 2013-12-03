@@ -35,6 +35,11 @@ bool is_number(const std::string &s);
 bool handshake(int csock, std::string atmNumber);
 int attempt = 3;
 std::string sessionKey = "";
+std::string atmNonce;
+std::string message;
+std::string bankNonce = "";
+std::string packet;
+
 
 int main(int argc, char *argv[]) {
 
@@ -63,8 +68,8 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    if(!handshake(sock, argv[1])){
-        cerr << "SECURITY COMPROMISED!" << endl;   
+    if (!handshake(sock, argv[1])) {
+        cerr << "SECURITY COMPROMISED!" << endl;
         exit(1);
     }
 
@@ -76,8 +81,6 @@ int main(int argc, char *argv[]) {
         //fgets(buf, 79, stdin);
         //buf[strlen(buf)-1] = '\0'; //trim off trailing newline
 
-        //TODO: your input parsing code has to put data here
-        string packet;
         int length = 1024;
         std::string username; //10 char username plus null character
         std::string pin; // 4 digit PIN plus null character
@@ -110,15 +113,40 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-
         if ( command[0] == "login" && !isLoggedin ) { //Only available to un-validated user
             cout << "Please enter your username: ";
             cin >> username;
-            cout << endl;
+            while (username.size() > 10) {
+                cout << "Usernames are 10 characters or less!" << endl;
+                cout << "Please enter your username: ";
+                cin >> username;
+            }
 
             pin = getPin(true);
-            // Form login packet to send to bank
-        } //End login
+            pin = SHA1(pin);
+            atmNonce = makeNonce();
+            message = "login " + username + " " + pin;
+            packet = createPacket(sessionKey, atmNonce, message, bankNonce);
+
+            sendPacket(sock, length, packet);
+            recvPacket(sock, length, packet);
+
+            std::vector<std::string> results = openPacket(packet, sessionKey);
+
+            if (results[0] != atmNonce) {
+                return false;
+            } else if (results[1] != "failure") {
+                cout << "\nInvalid Username or Pin!" << endl;
+                attempt --;
+            } else if ( results[1] == "success") {
+                cout << "Successfully logged in!" << endl;
+                isLoggedin = true;
+            }
+
+        } else {
+            cout << "You are already logged in" << endl;
+        }
+        //End login
 
         if ( command[0] == "withdraw" && isLoggedin) {
             int withdrawAmount = 0;
@@ -139,7 +167,7 @@ int main(int argc, char *argv[]) {
             //Form withdraw packet and send to bank
         } //End withdraw
 
-        if( command[0] == "transfer" && isLoggedin){
+        if ( command[0] == "transfer" && isLoggedin) {
             std::string transferToUsername;
             int transferAmount = 0 ;
             bool validAmount = false;
@@ -166,32 +194,6 @@ int main(int argc, char *argv[]) {
             //Form transfer packet and send to bank
 
         } // End transfer
-
-        //TODO: other commands
-
-        //send the packet through the proxy to the bank
-        if (sizeof(int) != send(sock, &length, sizeof(int), 0)) {
-            printf("fail to send packet length\n");
-            break;
-        }
-        if (length != send(sock, static_cast<void *>(&packet), length, 0)) {
-            printf("fail to send packet\n");
-            break;
-        }
-
-        //TODO: do something with response packet
-        if (sizeof(int) != recv(sock, &length, sizeof(int), 0)) {
-            printf("fail to read packet length\n");
-            break;
-        }
-        if (length > 1024) {
-            printf("packet too long\n");
-            break;
-        }
-        if (length != recv(sock, static_cast<void *>(&packet), length, 0)) {
-            printf("fail to read packet\n");
-            break;
-        }
     }
 
     //cleanup
@@ -205,10 +207,9 @@ int main(int argc, char *argv[]) {
 
 bool handshake(int csock, std::string atmNumber) {
 
-    std::string packet;
-    std::string bankNonce = "";
-    std::string atmNonce = makeNonce();
-    std::string message = "handshake";
+    bankNonce = "";
+    atmNonce = makeNonce();
+    message = "handshake";
     int length = 1024;
 
     //construct filename from command-line argument
@@ -237,22 +238,21 @@ bool handshake(int csock, std::string atmNumber) {
     packet = createPacket(sessionKey, atmNonce, message, bankNonce);
 
 
-   //send the packet through the proxy to the bank
-    if(!sendPacket(csock, length, packet)){
-	    return false;
+    //send the packet through the proxy to the bank
+    if (!sendPacket(csock, length, packet)) {
+        return false;
     }
-    
-    if(!recvPacket(csock, length, packet)){
-	    return false;
+
+    if (!recvPacket(csock, length, packet)) {
+        return false;
     }
 
 
     std::vector<std::string> results = openPacket(packet, sessionKey);
     //cout << results[1] << endl;
-    if(results[0] != atmNonce){
+    if (results[0] != atmNonce) {
         return false;
-    }
-    else if(results[1] != "handshakeResponse"){
+    } else if (results[1] != "handshakeResponse") {
         return false;
     }
 
@@ -286,7 +286,24 @@ std::string getPin(bool show_asterisk = true) {
     bool validPin = false;
 
     cout << "Please enter 4 digit pin: ";
+    while ( (ch = getch()) != RETURN) {
+        if (ch == BACKSPACE) {
+            if (password.length() != 0) {
+                if (show_asterisk)
+                    cout << "\b \b";
+                password.resize(password.length() - 1);
+            }
+        } //end if BACKSPACE
+        else {
+            password += ch;
+            if (show_asterisk)
+                cout << '*';
+        } //end else
+    }// user finished entering Pin
+    validPin = is_number(password);
+
     while (!validPin) {
+        password = "";
         while ( (ch = getch()) != RETURN) {
             if (ch == BACKSPACE) {
                 if (password.length() != 0) {
@@ -304,17 +321,19 @@ std::string getPin(bool show_asterisk = true) {
         validPin = is_number(password);
         if (!validPin) {
             std::cout << "\nInvalid PIN entered. Please try again using digits." << std::endl;
-            attempt--;
+            cout << "Please enter 4 digit pin: ";
         }
     }//User has entered a valid Pin attempt
 
-    cout << endl;
     return password;
 }
 
 // This function checks the entered PIN to ensure it is a positive int (0-9)
 bool is_number(const std::string &s) {
-    std::string::const_iterator it = s.begin();
-    while (it != s.end() && std::isdigit(*it)) ++it;
-    return !s.empty() && it == s.end();
+    if (s.size() != 4) {
+        return false;
+    }
+    return !s.empty() && std::find_if(s.begin(), s.end(), [](char c) {
+        return !std::isdigit(c);
+    }) == s.end();
 }
