@@ -75,10 +75,10 @@ int main(int argc, char *argv[]) {
 
     //input loop
     std::string buf;
-	bool isLoggedin = false; // User has not been validated
+    bool isLoggedin = false; // User has not been validated
     while (1 && attempt != 0) {
         printf("atm> ");
-        std::cin >> buf;
+        std::getline(std::cin, buf);
         //fgets(buf, 79, stdin);
         //buf[strlen(buf)-1] = '\0'; //trim off trailing newline
 
@@ -113,11 +113,14 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        if (command.size() == 1 && command[0] == "login") { //Only available to un-validated user
-	        if(isLoggedin) {
-				cout << "\nYou are already logged in!" << endl;
-				continue;
-	        }
+        if (command[0] == "login") { //Only available to un-validated user
+            if (isLoggedin) {
+                cout << "\nYou are already logged in!" << endl;
+                continue;
+            } else if (command.size() > 1) {
+                std::cout << "Not a valid command, please try again" << std::endl;
+                continue;
+            }
 
             cout << "Please enter your username: ";
 
@@ -152,15 +155,23 @@ int main(int argc, char *argv[]) {
 
         }
 
-        else if(command[0] == "logout" && command.size() == 1){
-	        atmNonce = makeNonce();
-	        message = "logout";
-	        packet = createPacket(sessionKey, atmNonce, message, bankNonce);
-	        break;
+        else if (command[0] == "logout" && isLoggedin) {
+            if (command.size() > 1) {
+                std::cout << "Not a valid command, please try again" << std::endl;
+                continue;
+            }
+
+            atmNonce = makeNonce();
+            message = "logout";
+            packet = createPacket(sessionKey, atmNonce, message, bankNonce);
+            break;
         }
-        //End login
 
         else if ( command[0] == "withdraw" && isLoggedin) {
+            if (command.size() > 1) {
+                std::cout << "Not a valid command, please try again" << std::endl;
+                continue;
+            }
             int withdrawAmount = 0;
             bool validAmount = false;
 
@@ -180,6 +191,10 @@ int main(int argc, char *argv[]) {
         } //End withdraw
 
         else if ( command[0] == "transfer" && isLoggedin) {
+            if (command.size() > 1) {
+                std::cout << "Not a valid command, please try again" << std::endl;
+                continue;
+            }
             std::string transferToUsername;
             int transferAmount = 0 ;
             bool validAmount = false;
@@ -206,6 +221,14 @@ int main(int argc, char *argv[]) {
             //Form transfer packet and send to bank
 
         } // End transfer
+
+        else if (command[0] == "balance" && isLoggedin) {
+            if (command.size() > 1) {
+                std::cout << "Not a valid command, please try again" << std::endl;
+                continue;
+            }
+
+        }
     }
 
     //cleanup
@@ -213,7 +236,7 @@ int main(int argc, char *argv[]) {
         cout << "Too many errors.\n";
     cout << "Goodbye.\n";
 
-    //close(sock);
+    close(sock);
     return 0;
 }
 
