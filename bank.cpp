@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <string.h>
@@ -80,7 +81,7 @@ int main(int argc, char* argv[])
 			continue;
 			
 		pthread_t thread;
-		pthread_create(&thread, NULL, client_thread, (void*)csock);
+		pthread_create(&thread, NULL, client_thread, (void*)(intptr_t)csock);
 	}
 }
 

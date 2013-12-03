@@ -40,9 +40,9 @@ using CryptoPP::Exception;
 #include "includes/cryptopp/sha.h"
 using CryptoPP::SHA;
 
-#include "includes/cryptopp/md5.h"
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
-using CryptoPP::MD5;
+#include "includes/cryptopp/md5.h"
+using CryptoPP::Weak::MD5;
 
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
@@ -92,11 +92,11 @@ string createPacket(string &hexKey, string &nonce, string &message, string &newN
 	return packet;
 }
 
-std::vector<string> openPacket(string &packet, string &key) {
+std::vector<string> openPacket(string &packet, string &hexKey) {
 	string hexIV = packet.substr(0, 48);
 	string cipher = packet.substr(49);
 
-	string plain = decryptAES(cipher, key, hexIV);
+	string plain = decryptAES(cipher, hexKey, hexIV);
 	plain = unPad(plain);
 
 	std::vector<string> results;

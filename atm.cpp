@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
+using std::string;
 #include <vector>
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
@@ -81,7 +82,6 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> validCmds;
         validCmds.push_back("login");
         validCmds.push_back("withdraw");
-        validCmds.push_back("deposit");
         validCmds.push_back("transfer");
         validCmds.push_back("logout");
 
@@ -125,26 +125,6 @@ int main(int argc, char *argv[]) {
 
             //Form withdraw packet and send to bank
         } //End withdraw
-
-        if( command[0] == "deposit" && isLoggedin){
-            int depositAmount = 0;
-            bool validAmount = false;
-
-            while(!validAmount){
-                cout<<"Please enter amount < $ 32,767 to deposit: "; //Limit deposit to less than max int value
-                cin>> depositAmount;
-
-                if (depositAmount > 0 && depositAmount < 32767 && isdigit(depositAmount))  // Check amount entered is formed of digits, non-negative, and < 32767
-                    validAmount = true;
-                else{
-                    attempt--;    //Else decrement attempts left and prompt to retry
-                    cout<<"Invalid amount entered. Please try again: "<<endl;
-                }//End else
-            }//End while
-
-            //Form deposit packet and send to bank
-
-        } // End deposit
 
         if( command[0] == "transfer" && isLoggedin){
             std::string transferToUsername;

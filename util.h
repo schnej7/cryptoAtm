@@ -9,7 +9,7 @@ typedef unsigned char byte;
 
 string makeNonce();
 string createPacket(string &key, string &nonce, string &message, string &newNonce);
-std::vector<string> openPacket(string &packet, string &key);
+std::vector<string> openPacket(string &packet, string &hexKey);
 string generateAESKey();
 string generateAESIV();
 string encryptAES(string &plain, string &hexKey, string &hexIV);
