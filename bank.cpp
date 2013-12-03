@@ -225,7 +225,7 @@ void *deposit( char *msgbuf ) {
     std::string user = messageString.substr( begin, spaceLoc - begin );
     std::string amount = messageString.substr( spaceLoc + 1, length - spaceLoc );
     for ( int i = 0; i < users.size(); i++ ) {
-        if ( users[i].compareName(user, bankSecret) ) {
+        if ( users[i].compareName(user, bankSecret) && users[i].getBalance() > 0 && atoi(amount.c_str()) > 0 ) {
             users[i].setBalance( users[i].getBalance() + atoi(amount.c_str()) );
         }
     }
