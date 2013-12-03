@@ -30,7 +30,6 @@ using std::cerr;
 using std::cout;
 using std::endl;
 
-
 std::string getPin(bool show_asterisk);
 bool is_number(const std::string &s);
 bool handshake(int csock, std::string atmNumber);
@@ -65,7 +64,8 @@ int main(int argc, char *argv[]) {
     }
 
     if(!handshake(sock, argv[1])){
-        cerr << "SECURITY COMPROMISED!" << endl;
+        cerr << "SECURITY COMPROMISED!" << endl;   
+        exit(1);
     }
 
     //input loop
