@@ -7,6 +7,8 @@ using std::endl;
 using std::ostringstream;
 using std::stringstream;
 
+#include <sys/socket.h>
+
 #include <string>
 using std::string;
 
@@ -70,6 +72,44 @@ string makeNonce() {
     string nonceStr = oss.str();
 
     return nonceStr;
+}
+
+bool sendPacket(int sock, int length, string &packet) {
+
+	char* charPacket = new char[1024];
+	charPacket = (char*)packet.c_str();
+	
+    if (sizeof(int) != send(sock, &length, sizeof(int), 0)) {
+        printf("fail to send packet length\n");
+        return false;
+    }
+    if (length != send(sock, (void*)charPacket, length, 0)) {
+        printf("fail to send packet\n");
+        return false;
+    }
+    return true;
+}
+
+bool recvPacket(int sock, int length, string &packet){
+
+	char* charPacket = new char[1024];
+
+    if (sizeof(int) != recv(sock, &length, sizeof(int), 0)) {
+        return false;
+    }
+    if (length > 1024) {
+        printf("packet too long\n");
+        return false;
+    }
+
+    if (length != recv(sock, charPacket, length, 0)) {
+        printf("[bank] fail to read packet\n");
+        return false;
+    }
+
+    packet = charToString(charPacket);
+    return true;
+
 }
 
 /*this is a function that will take a message and break
