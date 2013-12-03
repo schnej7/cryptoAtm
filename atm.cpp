@@ -206,7 +206,6 @@ int main(int argc, char *argv[]) {
 bool handshake(int csock, std::string atmNumber) {
 
     std::string packet;
-    char * charPacket = new char[1024];
     std::string bankNonce = "";
     std::string atmNonce = makeNonce();
     std::string message = "handshake";
@@ -237,33 +236,16 @@ bool handshake(int csock, std::string atmNumber) {
     }
     packet = createPacket(sessionKey, atmNonce, message, bankNonce);
 
-    charPacket = (char*)packet.c_str();
-
 
    //send the packet through the proxy to the bank
-    if (sizeof(int) != send(csock, &length, sizeof(int), 0)) {
-        printf("fail to send packet length\n");
-        return false;
+    if(!sendPacket(csock, length, packet)){
+	    return false;
     }
-    if (length != send(csock, (void*)charPacket, length, 0)) {
-        printf("fail to send packet\n");
-        return false;
-    }
-
-    if (sizeof(int) != recv(csock, &length, sizeof(int), 0)) {
-        return NULL;
-    }
-    if (length > 1024) {
-        printf("packet too long\n");
-        return NULL;
+    
+    if(!recvPacket(csock, length, packet)){
+	    return false;
     }
 
-    if (length != recv(csock, charPacket, length, 0)) {
-        printf("[bank] fail to read packet\n");
-        return NULL;
-    }
-
-    packet = charToString(charPacket);
 
     std::vector<std::string> results = openPacket(packet, sessionKey);
     //cout << results[1] << endl;

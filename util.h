@@ -8,6 +8,8 @@ using std::string;
 typedef unsigned char byte;
 
 string makeNonce();
+bool recvPacket(int sock, int length, string &packet);
+bool sendPacket(int sock, int length, string &packet);
 string createPacket(string &key, string &nonce, string &message, string &newNonce);
 std::vector<string> openPacket(string &packet, string &hexKey);
 string generateAESKey();

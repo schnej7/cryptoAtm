@@ -95,21 +95,9 @@ void *client_thread(void *arg) {
 
     int csock = *((int *)(&arg));
 
+    std::string packet;
 
-    if (sizeof(int) != recv(csock, &length, sizeof(int), 0)) {
-        return NULL;
-    }
-    if (length > 1024) {
-        printf("packet too long\n");
-        return NULL;
-    }
-
-    if (length != recv(csock, charPacket, length, 0)) {
-        printf("[bank] fail to read packet\n");
-        return NULL;
-    }
-
-    std::string packet = charToString(charPacket);
+    recvPacket(csock, length, packet);
 
     std::vector<std::string> results;
     for (unsigned int i = 0; i < keys.size(); ++i) {
@@ -141,16 +129,7 @@ void *client_thread(void *arg) {
     length = 1024;
 
     packet = createPacket(sessionKey, results[0], message, bankNonce);
-    charPacket = (char *)packet.c_str();
-
-    if (sizeof(int) != send(csock, &length, sizeof(int), 0)) {
-        printf("[bank] fail to send packet length\n");
-        return NULL;
-    }
-    if (length != send(csock, (void *)charPacket, length, 0)) {
-        printf("[bank] fail to send packet\n");
-        return NULL;
-    }
+    sendPacket(csock, length, packet);
 
     printf("[bank] client ID #%d connected\n", csock);
 
