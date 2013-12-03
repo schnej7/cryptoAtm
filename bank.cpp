@@ -211,9 +211,43 @@ void *client_thread(void *arg) {
 			    message = "success";
 		    }
 	    }
-	    else if(command[0] == "balance"){
+	    else if(command[0] == "balance") {
+		    message = std::to_string(users[current].getBalanceSecure(pinHash, bankSecret));
 	    }
-	    else if(command[0] == "transfer"){
+	    else if(command[0] == "transfer") {
+		    int amount = stoi(command[1]);
+		    int userBalance = users[current].getBalanceSecure(pinHash, bankSecret);
+		    string otherUser = command[2];
+		    int other;
+
+		    bool validUser = false;
+			for ( int i = 0; i < users.size(); i++ ) {
+				if ( users[i].compareName(otherUser, bankSecret) ) {
+					other = i;
+					validUser = true;
+				}
+			}
+			if(validUser) {
+				int otherBalance = users[other].getBalanceSecure(pinHash, bankSecret);
+				if(userBalance - amount < 0){
+					message = "overdraft";
+				}
+				else if(userBalance - amount > 0 && userBalance - amount < 10) {
+					message = "low";
+				}
+				else if(otherBalance + amount > 1000000000){
+					message = "overflow";
+				}
+				else {
+					users[current].setBalanceSecure(userBalance - amount, pinHash, bankSecret);
+					users[other].setBalanceSecure(otherBalance + amount, pinHash, bankSecret);
+					message = "success";
+				}
+			}
+			else {
+				message = "failure";
+			}
+		    
 	    }
 	    else if(command[0] == "logout"){
 		    keysInUse[atm] = false;
