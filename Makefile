@@ -25,4 +25,4 @@ debug32:
 install:
 	apt-get install gcc-multilib
 	apt-get install libboost-all-dev
-	apt-cache pkgnames | grep -i crypto++ apt-get install libcrypto++9 libcrypto++9-dbg libcrypto++-dev
+	apt-get install libcrypto++9 libcrypto++9-dbg libcrypto++-dev
