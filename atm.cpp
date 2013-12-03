@@ -43,13 +43,28 @@ std::string packet;
 
 int main(int argc, char *argv[]) {
 
-    if (argc != 3) {
-        printf("Usage: atm proxy-port atm-number(1-50)\n");
+    if (argc != 2) {
+        printf("Usage: atm proxy-port\n");
         return -1;
     }
 
+    string ATM;
+    bool goodATM = false;
+    while (goodATM == false) {
+        cout << "Please enter an ATM number:" << endl;
+        std::getline(std::cin, ATM);
+        if (is_number(ATM)) { // Check amount entered is formed of digits, non-negative, and < $500
+            if (stoi(ATM) <= 10 && stoi(ATM) > 0) {
+                goodATM = true;
+            }
+        }
+        if (!goodATM) {
+            cout << "Please enter an ATM between 1 and 10." << endl;
+        }
+    }
+
     //socket setup
-    unsigned short proxport = atoi(argv[2]);
+    unsigned short proxport = atoi(argv[1]);
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (!sock) {
         printf("fail to create socket\n");
@@ -68,7 +83,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    if (!handshake(sock, argv[1])) {
+    if (!handshake(sock, ATM)) {
         cerr << "SECURITY COMPROMISED!" << endl;
         exit(1);
     }
@@ -142,6 +157,10 @@ int main(int argc, char *argv[]) {
 
             std::vector<std::string> results = openPacket(packet, sessionKey);
 
+            if (results.empty()) {
+                return false;
+            }
+
             if (results[0] != atmNonce) {
                 return false;
             } else if (results[1] == "failure") {
@@ -164,6 +183,7 @@ int main(int argc, char *argv[]) {
             atmNonce = makeNonce();
             message = "logout";
             packet = createPacket(sessionKey, atmNonce, message, bankNonce);
+            sendPacket(sock, length, packet);
             break;
         }
 
@@ -192,6 +212,10 @@ int main(int argc, char *argv[]) {
 
                         std::vector<std::string> results = openPacket(packet, sessionKey);
 
+                        if (results.empty()) {
+                            return false;
+                        }
+
                         if (results[0] != atmNonce) {
                             return false;
                         }
@@ -202,18 +226,17 @@ int main(int argc, char *argv[]) {
                         }
 
                         else if ( results[1] == "low") {
-                            cout << "\nWarning: your balance has dropped below $10.00" << endl;
+                            cout << "\nWithdraw Successful, Warning: your balance has dropped below $10.00" << endl;
                         }
 
                         else if ( results[1] == "success") {
-                            cout << "\nPlease wait for funds to be dispersed!" << endl;
+                            cout << "\nWithdraw Successful, please wait for funds to be dispersed!" << endl;
                         }
                         bankNonce = results[2];
                     }
                 }
 
                 else {
-                    attempt--;    //Else decrement attempts left and prompt to retry
                     cout << "Invalid amount entered. Please try again: " << endl;
                 }//End else
             }//End while
@@ -227,29 +250,70 @@ int main(int argc, char *argv[]) {
                 continue;
             }
             std::string transferToUsername;
-            int transferAmount = 0 ;
             bool validAmount = false;
 
             cout << "Please enter username you wish to transfer money to: ";
-            cin >> transferToUsername;
-            cout << endl;
+            std::getline(std::cin, transferToUsername);
+            while (transferToUsername.size() > 10) {
+                cout << "Usernames are 10 characters or less!" << endl;
+                cout << "Please enter username you wish to transfer money to: ";
+                std::getline(std::cin, transferToUsername);
+            }
+            std::string withdrawAmount;
 
-            cout << "Please enter amount > 0 and <= $500 to transfer:";
-            cin >> transferAmount;
+            while (validAmount == false) {
+                withdrawAmount = "";
+                cout << "Please enter amount > $0 and <= $500 to withdraw: ";
+                std::getline(std::cin, withdrawAmount);
+                if (is_number(withdrawAmount)) { // Check amount entered is formed of digits, non-negative, and < $500
+                    if (stoi(withdrawAmount) <= 500 && stoi(withdrawAmount) > 0) {
 
-            while (!validAmount) {
-                cout << "Please enter amount > 0 and <= $500 to transfer:";
-                cin >> transferAmount;
+                        validAmount = true;
+                        atmNonce = makeNonce();
+                        message = "transfer " + withdrawAmount + " " + transferToUsername;
+                        packet = createPacket(sessionKey, atmNonce, message, bankNonce);
 
-                if (transferAmount > 0 && transferAmount <= 500 && isdigit(transferAmount))  // Check amount entered is formed of digits, non-negative, and < 32767
-                    validAmount = true;
+                        sendPacket(sock, length, packet);
+                        recvPacket(sock, length, packet);
+
+                        std::vector<std::string> results = openPacket(packet, sessionKey);
+
+                        if (results.empty()) {
+                            return false;
+                        }
+
+                        if (results[0] != atmNonce) {
+                            return false;
+                        }
+
+                        else if (results[1] == "overdraft") {
+                            cout << "\nInsufficient funds available." << endl;
+                            attempt --;
+                        }
+
+                        else if ( results[1] == "low") {
+                            cout << "\nFunds Transferred!, Warning: your balance has dropped below $10.00" << endl;
+                        }
+
+                        else if ( results[1] == "success") {
+                            cout << "\nFunds Transferred!" << endl;
+                        }
+
+                        else if ( results[1] == "overflow") {
+                            cout << "\nTransfer would cause overflow of " << transferToUsername << "'s account." << endl;
+                            attempt--;
+                        } else if ( results[1] == "failure") {
+                            cout << "\nUnable to transfer funds." << endl;
+                            attempt --;
+                        }
+                        bankNonce = results[2];
+                    }
+                }
+
                 else {
-                    attempt--;    //Else decrement attempts left and prompt to retry
                     cout << "Invalid amount entered. Please try again: " << endl;
                 }//End else
-            }//End while
-
-            //Form transfer packet and send to bank
+            }
 
         } // End transfer
 
@@ -258,6 +322,28 @@ int main(int argc, char *argv[]) {
                 std::cout << "Not a valid command, please try again" << std::endl;
                 continue;
             }
+
+            atmNonce = makeNonce();
+            message = "balance";
+            packet = createPacket(sessionKey, atmNonce, message, bankNonce);
+
+            sendPacket(sock, length, packet);
+            recvPacket(sock, length, packet);
+
+            std::vector<std::string> results = openPacket(packet, sessionKey);
+
+            if (results.empty()) {
+                ;
+                return false;
+            }
+
+            if (results[0] != atmNonce) {
+                return false;
+            }
+
+            cout << "\nBalance: " << results[1] << endl;
+
+            bankNonce = results[2];
 
         }
     }
@@ -314,6 +400,11 @@ bool handshake(int csock, std::string atmNumber) {
 
 
     std::vector<std::string> results = openPacket(packet, sessionKey);
+
+    if (results.empty()) {
+        ;
+        return false;
+    }
     //cout << results[1] << endl;
     if (results[0] != atmNonce) {
         return false;

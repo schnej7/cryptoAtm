@@ -46,52 +46,48 @@ int main(int argc, char *argv[]) {
     users.push_back( Acct("Alice", "1234", 100, bankSecret) );
     users.push_back( Acct("Bob", "6543", 50, bankSecret) );
     users.push_back( Acct("Eve", "1122", 0, bankSecret) );
-	
-	unsigned short ourport = atoi(argv[1]);
-	
-	//socket setup
-	int lsock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if(!lsock)
-	{
-		printf("fail to create socket\n");
-		return -1;
-	}
-	
-	//listening address
-	sockaddr_in addr_l;
-	addr_l.sin_family = AF_INET;
-	addr_l.sin_port = htons(ourport);
-	unsigned char* ipaddr = reinterpret_cast<unsigned char*>(&addr_l.sin_addr);
-	ipaddr[0] = 127;
-	ipaddr[1] = 0;
-	ipaddr[2] = 0;
-	ipaddr[3] = 1;
-	if(0 != bind(lsock, reinterpret_cast<sockaddr*>(&addr_l), sizeof(addr_l)))
-	{
-		printf("failed to bind socket\n");
-		return -1;
-	}
-	if(0 != listen(lsock, SOMAXCONN))
-	{
-		printf("failed to listen on socket\n");
-		return -1;
-	}
-	
-	pthread_t cthread;
-	pthread_create(&cthread, NULL, console_thread, NULL);
-	
-	//loop forever accepting new connections
-	while(1)
-	{
-		sockaddr_in unused;
-		socklen_t size = sizeof(unused);
-		int csock = accept(lsock, reinterpret_cast<sockaddr*>(&unused), &size);
-		if(csock < 0)	//bad client, skip it
-			continue;
-			
-		pthread_t thread;
-		pthread_create(&thread, NULL, client_thread, (void*)(intptr_t)csock);
-	}
+
+    unsigned short ourport = atoi(argv[1]);
+
+    //socket setup
+    int lsock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (!lsock) {
+        printf("fail to create socket\n");
+        return -1;
+    }
+
+    //listening address
+    sockaddr_in addr_l;
+    addr_l.sin_family = AF_INET;
+    addr_l.sin_port = htons(ourport);
+    unsigned char *ipaddr = reinterpret_cast<unsigned char *>(&addr_l.sin_addr);
+    ipaddr[0] = 127;
+    ipaddr[1] = 0;
+    ipaddr[2] = 0;
+    ipaddr[3] = 1;
+    if (0 != bind(lsock, reinterpret_cast<sockaddr *>(&addr_l), sizeof(addr_l))) {
+        printf("failed to bind socket\n");
+        return -1;
+    }
+    if (0 != listen(lsock, SOMAXCONN)) {
+        printf("failed to listen on socket\n");
+        return -1;
+    }
+
+    pthread_t cthread;
+    pthread_create(&cthread, NULL, console_thread, NULL);
+
+    //loop forever accepting new connections
+    while (1) {
+        sockaddr_in unused;
+        socklen_t size = sizeof(unused);
+        int csock = accept(lsock, reinterpret_cast<sockaddr *>(&unused), &size);
+        if (csock < 0)  //bad client, skip it
+            continue;
+
+        pthread_t thread;
+        pthread_create(&thread, NULL, client_thread, (void *)(intptr_t)csock);
+    }
 }
 
 void *client_thread(void *arg) {
@@ -121,7 +117,7 @@ void *client_thread(void *arg) {
                                ) // HexEncoder
                               ); // StringSource
 
-            results = openPacket(packet, encoded);
+        results = openPacket(packet, encoded);
         if (!results.empty() && results[1] == "handshake") {
             sessionKey = encoded;
             keysInUse[i] = true;
@@ -130,7 +126,8 @@ void *client_thread(void *arg) {
         }
     }
 
-    if(results.empty()){
+    if (results.empty()) {
+        keysInUse[atm] = false;
         return NULL;
     }
 
@@ -147,127 +144,121 @@ void *client_thread(void *arg) {
     string pinHash;
     int current; //current user number
     while (1) {
-	    string message = "";
+        string message = "";
         //read the packet from the ATM
-	    if(!recvPacket(csock, length, packet)){
-		    keysInUse[atm] = false;
-		    break;
-	    }
-	    vector<string> results = openPacket(packet, sessionKey);
+        if (!recvPacket(csock, length, packet)) {
+            keysInUse[atm] = false;
+            break;
+        }
+        vector<string> results = openPacket(packet, sessionKey);
 
-	    /*for(int i = 0; i < results.size(); i++){
-		    cout << results[i] << endl;
-		    }*/
-	    
-	    if(!(results[2] == bankNonce)){
-		    cout << "ATM " << atm <<" SECURITY COMPROMISED!" << endl;
-		    keysInUse[atm] = false;
-		    break;
-	    }
+        if (results.empty()) {
+            keysInUse[atm] = false;
+            break;
+        }
 
-	    vector<string> command = parseCommand(results[1]);
+        /*for(int i = 0; i < results.size(); i++){
+            cout << results[i] << endl;
+            }*/
 
-	    if(command[0] == "login"){
-		    //cout << "inside login" << endl;
-		    string username = command[1];
-		    pinHash = command[2];
-		    bool validUser = false;
-			for ( int i = 0; i < users.size(); i++ ) {
-				if ( users[i].compareName(username, bankSecret) ) {
-					current = i;
-					validUser = true;
-				}
-			}
-			if(validUser){
-				if(users[current].validatePin(pinHash, bankSecret)) {
-					if(!users[current].loggedIn){
-						message = "success";
-						users[current].loggedIn = true;
-					}
-					else {
-						message = "failure";
-					}
-					
-				}
-				else {
-					message = "failure";
-				}
-			}
-			else {
-				message = "failure";
-			}		    
-	    }
-	    else if(command[0] == "withdraw"){
-		    int amount = stoi(command[1]);
-		    int current_balance = users[current].getBalanceSecure(pinHash, bankSecret);
-		    if(current_balance - amount < 0){
-			    message = "overdraft";
-		    }
-		    else if(current_balance - amount > 0 && current_balance - amount < 10) {
+        if (!(results[2] == bankNonce)) {
+            cout << "ATM " << atm << " SECURITY COMPROMISED!" << endl;
+            keysInUse[atm] = false;
+            break;
+        }
+
+        vector<string> command = parseCommand(results[1]);
+
+        if (command[0] == "login") {
+            //cout << "inside login" << endl;
+            string username = command[1];
+            pinHash = command[2];
+            bool validUser = false;
+            for ( int i = 0; i < users.size(); i++ ) {
+                if ( users[i].compareName(username, bankSecret) ) {
+                    current = i;
+                    validUser = true;
+                }
+            }
+            if (validUser) {
+                if (users[current].validatePin(pinHash, bankSecret)) {
+                    if (!users[current].loggedIn) {
+                        message = "success";
+                        users[current].loggedIn = true;
+                    } else {
+                        message = "failure";
+                    }
+
+                } else { 
+                    message = "failure";
+                }
+            } else { 
+                message = "failure";
+            }
+        } else if (command[0] == "withdraw") {
+            int amount = stoi(command[1]);
+            int current_balance = users[current].getBalanceSecure(pinHash, bankSecret);
+            if (current_balance - amount < 0) {
+                message = "overdraft";
+            } else if (current_balance - amount >= 0 && current_balance - amount < 10) {
                 users[current].setBalanceSecure(current_balance - amount, pinHash, bankSecret);
-			    message = "low";
-		    }
-		    else {
-			    users[current].setBalanceSecure(current_balance - amount, pinHash, bankSecret);
-			    message = "success";
-		    }
-	    }
-	    else if(command[0] == "balance") {
-		    message = std::to_string(users[current].getBalanceSecure(pinHash, bankSecret));
-	    }
-	    else if(command[0] == "transfer") {
-		    int amount = stoi(command[1]);
-		    int userBalance = users[current].getBalanceSecure(pinHash, bankSecret);
-		    string otherUser = command[2];
-		    int other;
+                message = "low";
+            } else {
+                users[current].setBalanceSecure(current_balance - amount, pinHash, bankSecret);
+                message = "success";
+            }
+        } else if (command[0] == "balance") {
+            message = std::to_string(users[current].getBalanceSecure(pinHash, bankSecret));
+        } else if (command[0] == "transfer") {
+            int amount = stoi(command[1]);
+            int userBalance = users[current].getBalanceSecure(pinHash, bankSecret);
+            string otherUser = command[2];
+            int other;
 
-		    bool validUser = false;
-			for ( int i = 0; i < users.size(); i++ ) {
-				if ( users[i].compareName(otherUser, bankSecret) ) {
-					other = i;
-					validUser = true;
-				}
-			}
-			if(validUser) {
-				int otherBalance = users[other].getBalanceSecure(pinHash, bankSecret);
-				if(userBalance - amount < 0){
-					message = "overdraft";
-				}
-				else if(userBalance - amount > 0 && userBalance - amount < 10) {
-					message = "low";
-				}
-				else if(otherBalance + amount > 1000000000){
-					message = "overflow";
-				}
-				else {
-					users[current].setBalanceSecure(userBalance - amount, pinHash, bankSecret);
-					users[other].setBalanceSecure(otherBalance + amount, pinHash, bankSecret);
-					message = "success";
-				}
-			}
-			else {
-				message = "failure";
-			}
-		    
-	    }
-	    else if(command[0] == "logout"){
-		    keysInUse[atm] = false;
-		    users[current].loggedIn = false;
-		    break;
-	    }
+            bool validUser = false;
+            for ( int i = 0; i < users.size(); i++ ) {
+                if ( users[i].compareName(otherUser, bankSecret) ) {
+                    other = i;
+                    validUser = true;
+                }
+            }
+            if (validUser) {
+                int otherBalance = users[other].getBalance();
+                if (userBalance - amount < 0) {
+                    message = "overdraft";
+                } else if (userBalance - amount >= 0 && userBalance - amount < 10) {
+                    users[current].setBalanceSecure(userBalance - amount, pinHash, bankSecret);
+                    users[other].setBalanceSecure(otherBalance + amount, pinHash, bankSecret);
+                    message = "low";
+                } else if (otherBalance + amount > 1000000000) {
+                    message = "overflow";
+                } else {
+                    users[current].setBalanceSecure(userBalance - amount, pinHash, bankSecret);
+                    users[other].setBalance(otherBalance + amount);
+                    message = "success";
+                }
+            } else {
+                message = "failure";
+            }
+
+        } else if (command[0] == "logout") {
+            keysInUse[atm] = false;
+            users[current].loggedIn = false;
+            break;
+        }
 
         //TODO: process packet data
 
         //TODO: put new data in packet
 
         //send the new packet back to the client
-	    bankNonce = makeNonce();
-	    packet = createPacket(sessionKey, results[0], message, bankNonce);
-	    
-	    if(!sendPacket(csock, length, packet)){
-		    keysInUse[atm] = false;
-		    break;
-	    }
+        bankNonce = makeNonce();
+        packet = createPacket(sessionKey, results[0], message, bankNonce);
+
+        if (!sendPacket(csock, length, packet)) {
+            keysInUse[atm] = false;
+            break;
+        }
 
     }
 
