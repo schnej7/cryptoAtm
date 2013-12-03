@@ -15,26 +15,37 @@ using std::string;
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 #include <termios.h>
-#include <iostream>
+#include <fstream>
+#include "util.h"
+#include "includes/cryptopp/filters.h"
+using CryptoPP::StringSource;
+using CryptoPP::StringSink;
+#include "includes/cryptopp/hex.h"
+using CryptoPP::HexEncoder;
+using CryptoPP::HexDecoder;
+
+using namespace boost;
+using std::cin;
 using std::cerr;
 using std::cout;
 using std::endl;
-using std::cin;
 
-using namespace boost;
 
 std::string getPin(bool show_asterisk);
-bool is_number(const std::string& s);
+bool is_number(const std::string &s);
+bool handshake(int csock, std::string atmNumber);
 int attempt = 3;
+std::string sessionKey = "";
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Usage: atm proxy-port\n");
+
+    if (argc != 3) {
+        printf("Usage: atm proxy-port atm-number(1-50)\n");
         return -1;
     }
 
     //socket setup
-    unsigned short proxport = atoi(argv[1]);
+    unsigned short proxport = atoi(argv[2]);
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (!sock) {
         printf("fail to create socket\n");
@@ -53,7 +64,9 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    
+    if(!handshake(sock, argv[1])){
+        cerr << "SECURITY COMPROMISED!" << endl;
+    }
 
     //input loop
     std::string buf;
@@ -64,8 +77,8 @@ int main(int argc, char *argv[]) {
         //buf[strlen(buf)-1] = '\0'; //trim off trailing newline
 
         //TODO: your input parsing code has to put data here
-        char packet[1024];
-        int length = 1;
+        string packet;
+        int length = 1024;
         std::string username; //10 char username plus null character
         std::string pin; // 4 digit PIN plus null character
 
@@ -98,28 +111,28 @@ int main(int argc, char *argv[]) {
         }
 
 
-        if ( command[0] == "login" && !isLoggedin ){ //Only available to un-validated user
-            cout<<"Please enter your username: ";
-            cin>>username;
-            cout<<endl;
+        if ( command[0] == "login" && !isLoggedin ) { //Only available to un-validated user
+            cout << "Please enter your username: ";
+            cin >> username;
+            cout << endl;
 
             pin = getPin(true);
-        // Form login packet to send to bank
+            // Form login packet to send to bank
         } //End login
 
-        if( command[0] == "withdraw" && isLoggedin){
-            int withdrawAmount=0;
+        if ( command[0] == "withdraw" && isLoggedin) {
+            int withdrawAmount = 0;
             bool validAmount = false;
 
-            while(!validAmount){
-                cout<<"Please enter amount > $0 and <= $500 to withdraw: ";
-                cin>> withdrawAmount;
+            while (!validAmount) {
+                cout << "Please enter amount > $0 and <= $500 to withdraw: ";
+                cin >> withdrawAmount;
 
                 if (withdrawAmount > 0 && withdrawAmount <= 500 && isdigit(withdrawAmount))  // Check amount entered is formed of digits, non-negative, and < $500
                     validAmount = true;
-                else{
+                else {
                     attempt--;    //Else decrement attempts left and prompt to retry
-                    cout<<"Invalid amount entered. Please try again: "<<endl;
+                    cout << "Invalid amount entered. Please try again: " << endl;
                 }//End else
             }//End while
 
@@ -131,22 +144,22 @@ int main(int argc, char *argv[]) {
             int transferAmount = 0 ;
             bool validAmount = false;
 
-            cout<<"Please enter username you wish to transfer money to: ";
-            cin>> transferToUsername;
-            cout<<endl;
+            cout << "Please enter username you wish to transfer money to: ";
+            cin >> transferToUsername;
+            cout << endl;
 
-            cout<<"Please enter amount > 0 and <= $500 to transfer:";
-            cin>>transferAmount;
+            cout << "Please enter amount > 0 and <= $500 to transfer:";
+            cin >> transferAmount;
 
-            while(!validAmount){
-                cout<<"Please enter amount > 0 and <= $500 to transfer:";
-                cin>>transferAmount;
+            while (!validAmount) {
+                cout << "Please enter amount > 0 and <= $500 to transfer:";
+                cin >> transferAmount;
 
                 if (transferAmount > 0 && transferAmount <= 500 && isdigit(transferAmount))  // Check amount entered is formed of digits, non-negative, and < 32767
                     validAmount = true;
-                else{
+                else {
                     attempt--;    //Else decrement attempts left and prompt to retry
-                    cout<<"Invalid amount entered. Please try again: "<<endl;
+                    cout << "Invalid amount entered. Please try again: " << endl;
                 }//End else
             }//End while
 
@@ -161,7 +174,7 @@ int main(int argc, char *argv[]) {
             printf("fail to send packet length\n");
             break;
         }
-        if (length != send(sock, (void *)packet, length, 0)) {
+        if (length != send(sock, static_cast<void *>(&packet), length, 0)) {
             printf("fail to send packet\n");
             break;
         }
@@ -171,11 +184,11 @@ int main(int argc, char *argv[]) {
             printf("fail to read packet length\n");
             break;
         }
-        if (length >= 1024) {
+        if (length > 1024) {
             printf("packet too long\n");
             break;
         }
-        if (length != recv(sock, packet, length, 0)) {
+        if (length != recv(sock, static_cast<void *>(&packet), length, 0)) {
             printf("fail to read packet\n");
             break;
         }
@@ -183,11 +196,85 @@ int main(int argc, char *argv[]) {
 
     //cleanup
     if (attempt == 0)
-        cout<<"Too many errors.\n";
-    cout<<"Goodbye.\n";
+        cout << "Too many errors.\n";
+    cout << "Goodbye.\n";
 
     close(sock);
     return 0;
+}
+
+bool handshake(int csock, std::string atmNumber) {
+
+    std::string packet;
+    char * charPacket = new char[1024];
+    std::string bankNonce = "";
+    std::string atmNonce = makeNonce();
+    std::string message = "handshake";
+    int length = 1024;
+
+    //construct filename from command-line argument
+    std::string filename = std::string(atmNumber) + ".key";
+
+    //read in key from file
+    std::ifstream input_file;
+    input_file.open(filename.c_str());
+    if (input_file.is_open()) {
+        input_file >> sessionKey;
+    } else {
+        return false;
+    }
+    input_file.close();
+
+    if (atmNonce == "") {
+        atmNonce = "";
+        return false;
+    }
+
+    //std::vector<string> openPacket(string & packet, string & key);
+
+    if (sessionKey == "") {
+        return false;
+    }
+    packet = createPacket(sessionKey, atmNonce, message, bankNonce);
+
+    charPacket = (char*)packet.c_str();
+
+
+   //send the packet through the proxy to the bank
+    if (sizeof(int) != send(csock, &length, sizeof(int), 0)) {
+        printf("fail to send packet length\n");
+        return false;
+    }
+    if (length != send(csock, (void*)charPacket, length, 0)) {
+        printf("fail to send packet\n");
+        return false;
+    }
+
+    if (sizeof(int) != recv(csock, &length, sizeof(int), 0)) {
+        return NULL;
+    }
+    if (length > 1024) {
+        printf("packet too long\n");
+        return NULL;
+    }
+
+    if (length != recv(csock, charPacket, length, 0)) {
+        printf("[bank] fail to read packet\n");
+        return NULL;
+    }
+
+    packet = charToString(charPacket);
+
+    std::vector<std::string> results = openPacket(packet, sessionKey);
+    //cout << results[1] << endl;
+    if(results[0] != atmNonce){
+        return false;
+    }
+    else if(results[1] != "handshakeResponse"){
+        return false;
+    }
+
+    return true;
 }
 
 //Helper function for getpass() It reads in each character to be masked.
@@ -207,45 +294,44 @@ int getch() {
 }
 
 //This function prompts for and receives the user-entered PIN (masked with *'s)
-std::string getPin(bool show_asterisk=true){
-    
-    const char BACKSPACE=127;
-    const char RETURN=10;
+std::string getPin(bool show_asterisk = true) {
+
+    const char BACKSPACE = 127;
+    const char RETURN = 10;
 
     std::string password;
-    unsigned char ch=0;
+    unsigned char ch = 0;
     bool validPin = false;
 
     cout << "Please enter 4 digit pin: ";
-    while(!validPin){
-        while( (ch=getch())!= RETURN){
-            if(ch==BACKSPACE){
-                if(password.length()!=0){
-                    if(show_asterisk)
-                        cout <<"\b \b";
-                    password.resize(password.length()-1);
+    while (!validPin) {
+        while ( (ch = getch()) != RETURN) {
+            if (ch == BACKSPACE) {
+                if (password.length() != 0) {
+                    if (show_asterisk)
+                        cout << "\b \b";
+                    password.resize(password.length() - 1);
                 }
             } //end if BACKSPACE
-            else{
-                password+=ch;
-                if(show_asterisk)
-                    cout <<'*';
+            else {
+                password += ch;
+                if (show_asterisk)
+                    cout << '*';
             } //end else
         }// user finished entering Pin
         validPin = is_number(password);
-        if(!validPin){
-            std::cout<<"\nInvalid PIN entered. Please try again using digits." <<std::endl;
+        if (!validPin) {
+            std::cout << "\nInvalid PIN entered. Please try again using digits." << std::endl;
             attempt--;
         }
     }//User has entered a valid Pin attempt
 
-    cout<<endl;
+    cout << endl;
     return password;
 }
 
 // This function checks the entered PIN to ensure it is a positive int (0-9)
-bool is_number(const std::string& s)
-{
+bool is_number(const std::string &s) {
     std::string::const_iterator it = s.begin();
     while (it != s.end() && std::isdigit(*it)) ++it;
     return !s.empty() && it == s.end();

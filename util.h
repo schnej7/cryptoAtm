@@ -24,5 +24,7 @@ byte* generateAESKey(string key);
 string AESEncrypt( byte* key, byte* iv, string plaintext );
 string AESDecrypt( byte* key, byte* iv, string ctxt );
 string itos( int i );
+void generateRandomKey(std::string name, byte* key, long unsigned int length);
+string charToString(char * old );
 
 #endif

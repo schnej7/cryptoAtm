@@ -105,8 +105,9 @@ void* client_thread(void* arg)
 		//read the packet from the ATM
 		if(sizeof(int) != recv(csock, &length, sizeof(int), 0))
 			break;
-		if(length >= 1024)
+		if(length > 1024)
 		{
+			std::cout << length << std::endl;
 			printf("packet too long\n");
 			break;
 		}
@@ -136,7 +137,7 @@ void* client_thread(void* arg)
 			printf("[proxy] fail to read packet length\n");
 			break;
 		}
-		if(length >= 1024)
+		if(length > 1024)
 		{
 			printf("packet too long\n");
 			break;
