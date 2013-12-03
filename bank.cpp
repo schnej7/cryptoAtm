@@ -204,6 +204,7 @@ void *client_thread(void *arg) {
 			    message = "overdraft";
 		    }
 		    else if(current_balance - amount > 0 && current_balance - amount < 10) {
+                users[current].setBalanceSecure(current_balance - amount, pinHash, bankSecret);
 			    message = "low";
 		    }
 		    else {
