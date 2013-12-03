@@ -13,6 +13,8 @@ using std::stringstream;
 using std::string;
 
 #include "util.h"
+using std::vector;
+
 #include "includes/cryptopp/osrng.h"
 using CryptoPP::AutoSeededRandomPool;
 
@@ -48,6 +50,7 @@ using CryptoPP::Weak::MD5;
 
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
+using namespace boost;
 
 #include <fstream>
 //must be divisible by 16
@@ -72,6 +75,17 @@ string makeNonce() {
     string nonceStr = oss.str();
 
     return nonceStr;
+}
+
+vector<string> parseCommand(string& buf) {
+
+	std::vector<std::string> command;
+
+	char_separator<char> sep(" ");
+	tokenizer<char_separator<char> > tokens(buf, sep);
+	BOOST_FOREACH (const std::string & t, tokens) {
+		command.push_back(t);
+	}
 }
 
 bool sendPacket(int sock, int length, string &packet) {
@@ -103,7 +117,7 @@ bool recvPacket(int sock, int length, string &packet){
     }
 
     if (length != recv(sock, charPacket, length, 0)) {
-        printf("[bank] fail to read packet\n");
+        printf("fail to read packet\n");
         return false;
     }
 
@@ -120,9 +134,9 @@ bool recvPacket(int sock, int length, string &packet){
   format before encryption should be something along the lines of:
   <IV> <nonce> <message> <new nonce> <padding>:
 */
-string createPacket(string &hexKey, string &nonce, string &message, string &newNonce) {
+string createPacket(string &hexKey, string &atmNonce, string &message, string &bankNonce) {
 
-    string plain = nonce + "$" + message + "$" + newNonce;
+    string plain = atmNonce + "$" + message + "$" + bankNonce;
 
     string hexIV = generateAESIV();
 

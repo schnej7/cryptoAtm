@@ -95,6 +95,7 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> validCmds;
         validCmds.push_back("login");
         validCmds.push_back("withdraw");
+        validCmds.push_back("balance");
         validCmds.push_back("transfer");
         validCmds.push_back("logout");
 

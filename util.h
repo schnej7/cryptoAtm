@@ -2,12 +2,15 @@
 #define __util_h__
 
 #include <vector>
+using std::vector;
+
 #include <string>
 using std::string;
 
 typedef unsigned char byte;
 
 string makeNonce();
+vector<string> parseCommand(string& buf);
 bool recvPacket(int sock, int length, string &packet);
 bool sendPacket(int sock, int length, string &packet);
 string createPacket(string &key, string &nonce, string &message, string &newNonce);

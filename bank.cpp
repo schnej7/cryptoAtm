@@ -11,10 +11,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <pthread.h>
-#include <string.h>
+#include <cstring>
+#include <string>
+using std::string;
+
 #include <regex.h>
 #include <crypt.h>
 #include <vector>
+using std::vector;
+
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
+
 #include "acct.h"
 #include "util.cpp"
 
@@ -89,6 +97,8 @@ int main(int argc, char *argv[]) {
 void *client_thread(void *arg) {
 
     int length;
+    int current; //current user number
+    int atm;
     char *charPacket = new char[1024];
     std::vector<string> input;
     std::string sessionKey;
@@ -116,6 +126,7 @@ void *client_thread(void *arg) {
         if (!results.empty() && results[1] == "handshake") {
             sessionKey = encoded;
             keysInUse[i] = true;
+            atm = i;
             break;
         }
     }
@@ -135,37 +146,67 @@ void *client_thread(void *arg) {
 
     //input loop
     while (1) {
+	    string message;
         //read the packet from the ATM
-        if (sizeof(int) != recv(csock, &length, sizeof(int), 0)) {
-            break;
-        }
-        if (length > 1024) {
-            printf("packet too long\n");
-            break;
-        }
-        if (length != recv(csock, charPacket, length, 0)) {
-            printf("[bank] fail to read packet\n");
-            break;
-        }
+	    recvPacket(csock, length, packet);
+	    vector<string> openedPacket = openPacket(packet, sessionKey);
+
+	    if(!(openedPacket[2] == bankNonce)){
+		    cout << "ATM SECURITY COMPROMISED!" << endl;
+		    keysInUse[atm] = false;
+		    close(csock);
+	    }
+	    
+	    vector<string> command = parseCommand(openedPacket[1]);
+
+	    if(command[0] == "login"){
+		    string username = command[1];
+		    string pinHash = command[2];
+		    bool validUser = false;
+			for ( int i = 0; i < users.size(); i++ ) {
+				if ( users[i].compareName(username, bankSecret) ) {
+					current = i;
+					validUser = true;
+				}
+			}
+			if(validUser){
+				if(users[current].validatePin(pinHash, bankSecret)) {
+					message = "sucess";					
+				}
+				else {
+					message = "failure";
+				}
+			}
+			else {
+				message = "failure";
+			}		    
+	    }
+	    else if(command[0] == "withdraw"){
+	    }
+	    else if(command[0] == "balance"){
+	    }
+	    else if(command[0] == "transfer"){
+	    }
+	    else if(command[0] == "logout"){
+		    keysInUse[atm] = false;
+		    close(csock);
+	    }
 
         //TODO: process packet data
 
         //TODO: put new data in packet
 
         //send the new packet back to the client
-        if (sizeof(int) != send(csock, &length, sizeof(int), 0)) {
-            printf("[bank] fail to send packet length\n");
-            break;
-        }
-        if (length != send(csock, (void *)charPacket, length, 0)) {
-            printf("[bank] fail to send packet\n");
-            break;
-        }
+	    bankNonce = makeNonce();
+	    packet = createPacket(sessionKey, openedPacket[0], message, bankNonce);
+	    
+	    sendPacket(csock, length, packet);
 
     }
 
     printf("[bank] client ID #%d disconnected\n", csock);
 
+    keysInUse[atm] = false;
     close(csock);
     return NULL;
 }
