@@ -148,7 +148,10 @@ void *client_thread(void *arg) {
     while (1) {
 	    string message = "";
         //read the packet from the ATM
-	    recvPacket(csock, length, packet);
+	    if(!recvPacket(csock, length, packet)){
+		    keysInUse[atm] = false;
+		    break;
+	    }
 	    vector<string> results = openPacket(packet, sessionKey);
 
 	    /*for(int i = 0; i < results.size(); i++){
@@ -158,7 +161,7 @@ void *client_thread(void *arg) {
 	    if(!(results[2] == bankNonce)){
 		    cout << "ATM " << atm <<" SECURITY COMPROMISED!" << endl;
 		    keysInUse[atm] = false;
-		    return NULL;
+		    break;
 	    }
 
 	    vector<string> command = parseCommand(results[1]);
@@ -205,7 +208,10 @@ void *client_thread(void *arg) {
 	    bankNonce = makeNonce();
 	    packet = createPacket(sessionKey, results[0], message, bankNonce);
 	    
-	    sendPacket(csock, length, packet);
+	    if(!sendPacket(csock, length, packet)){
+		    keysInUse[atm] = false;
+		    break;
+	    }
 
     }
 
