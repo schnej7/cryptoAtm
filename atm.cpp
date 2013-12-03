@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
 
         }
 
-        else if (command[0] == "logout" && isLoggedin) {
+        else if (command[0] == "logout") {
             if (command.size() > 1) {
                 std::cout << "Not a valid command, please try again" << std::endl;
                 continue;
@@ -172,15 +172,46 @@ int main(int argc, char *argv[]) {
                 std::cout << "Not a valid command, please try again" << std::endl;
                 continue;
             }
-            int withdrawAmount = 0;
+            std::string withdrawAmount;
             bool validAmount = false;
 
-            while (!validAmount) {
+            while (validAmount == false) {
+                withdrawAmount = "";
                 cout << "Please enter amount > $0 and <= $500 to withdraw: ";
                 cin >> withdrawAmount;
+                if (is_number(withdrawAmount)) { // Check amount entered is formed of digits, non-negative, and < $500
+                    if (stoi(withdrawAmount) <= 500 && stoi(withdrawAmount) > 0) {
 
-                if (withdrawAmount > 0 && withdrawAmount <= 500 && isdigit(withdrawAmount))  // Check amount entered is formed of digits, non-negative, and < $500
-                    validAmount = true;
+                        validAmount = true;
+                        atmNonce = makeNonce();
+                        message = "withdraw " + withdrawAmount;
+                        packet = createPacket(sessionKey, atmNonce, message, bankNonce);
+
+                        sendPacket(sock, length, packet);
+                        recvPacket(sock, length, packet);
+
+                        std::vector<std::string> results = openPacket(packet, sessionKey);
+
+                        if (results[0] != atmNonce) {
+                            return false;
+                        }
+
+                        else if (results[1] == "overdraft") {
+                            cout << "\nInsufficient funds available." << endl;
+                            attempt --;
+                        }
+
+                        else if ( results[1] == "low") {
+                            cout << "\nWarning: your balance has dropped below $10.00" << endl;
+                        }
+
+                        else if ( results[1] == "success") {
+                            cout << "\nPlease wait for funds to be dispersed!" << endl;
+                        }
+                        bankNonce = results[2];
+                    }
+                }
+
                 else {
                     attempt--;    //Else decrement attempts left and prompt to retry
                     cout << "Invalid amount entered. Please try again: " << endl;
@@ -335,7 +366,13 @@ std::string getPin(bool show_asterisk = true) {
                 cout << '*';
         } //end else
     }// user finished entering Pin
-    validPin = is_number(password);
+    if (password.size() != 4) {
+        validPin =  false;
+    }
+
+    else {
+        validPin = is_number(password);
+    }
 
     while (!validPin) {
         password = "";
@@ -353,7 +390,13 @@ std::string getPin(bool show_asterisk = true) {
                     cout << '*';
             } //end else
         }// user finished entering Pin
-        validPin = is_number(password);
+        if (password.size() != 4) {
+            validPin =  false;
+        }
+
+        else {
+            validPin = is_number(password);
+        }
         if (!validPin) {
             std::cout << "\nInvalid PIN entered. Please try again using digits." << std::endl;
             cout << "Please enter 4 digit pin: ";
@@ -365,9 +408,6 @@ std::string getPin(bool show_asterisk = true) {
 
 // This function checks the entered PIN to ensure it is a positive int (0-9)
 bool is_number(const std::string &s) {
-    if (s.size() != 4) {
-        return false;
-    }
     return !s.empty() && std::find_if(s.begin(), s.end(), [](char c) {
         return !std::isdigit(c);
     }) == s.end();
