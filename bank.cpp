@@ -97,7 +97,6 @@ int main(int argc, char *argv[]) {
 void *client_thread(void *arg) {
 
     int length;
-    int current; //current user number
     int atm;
     char *charPacket = new char[1024];
     std::vector<string> input;
@@ -145,6 +144,8 @@ void *client_thread(void *arg) {
     printf("[bank] client ID #%d connected\n", csock);
 
     //input loop
+    string pinHash;
+    int current; //current user number
     while (1) {
 	    string message = "";
         //read the packet from the ATM
@@ -169,7 +170,7 @@ void *client_thread(void *arg) {
 	    if(command[0] == "login"){
 		    //cout << "inside login" << endl;
 		    string username = command[1];
-		    string pinHash = command[2];
+		    pinHash = command[2];
 		    bool validUser = false;
 			for ( int i = 0; i < users.size(); i++ ) {
 				if ( users[i].compareName(username, bankSecret) ) {
@@ -179,7 +180,14 @@ void *client_thread(void *arg) {
 			}
 			if(validUser){
 				if(users[current].validatePin(pinHash, bankSecret)) {
-					message = "success";					
+					if(!users[current].loggedIn){
+						message = "success";
+						users[current].loggedIn = true;
+					}
+					else {
+						message = "failure";
+					}
+					
 				}
 				else {
 					message = "failure";
@@ -190,6 +198,18 @@ void *client_thread(void *arg) {
 			}		    
 	    }
 	    else if(command[0] == "withdraw"){
+		    int amount = stoi(command[1]);
+		    int current_balance = users[current].getBalanceSecure(pinHash, bankSecret);
+		    if(current_balance - amount < 0){
+			    message = "overdraft";
+		    }
+		    else if(current_balance - amount > 0 && current_balance - amount < 10) {
+			    message = "low";
+		    }
+		    else {
+			    users[current].setBalanceSecure(current_balance - amount, pinHash, bankSecret);
+			    message = "success";
+		    }
 	    }
 	    else if(command[0] == "balance"){
 	    }
@@ -197,6 +217,7 @@ void *client_thread(void *arg) {
 	    }
 	    else if(command[0] == "logout"){
 		    keysInUse[atm] = false;
+		    users[current].loggedIn = false;
 		    break;
 	    }
 

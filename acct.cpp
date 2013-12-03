@@ -13,6 +13,7 @@ Acct::Acct( std::string a_name, std::string a_pin, int a_balance, std::string ba
 
     //Generate a random IV
     this->iv =  generateSecret( 16 );
+    this->loggedIn = false;
 
     //Convert IV to bytes
     byte ivBytes[16];
