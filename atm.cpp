@@ -76,6 +76,8 @@ int main(int argc, char *argv[]) {
     //input loop
     std::string buf;
     bool isLoggedin = false; // User has not been validated
+    std::string username; //10 char username plus null character
+    std::string pin; // 4 digit PIN plus null character
     while (1 && attempt != 0) {
         printf("atm> ");
         std::getline(std::cin, buf);
@@ -83,8 +85,6 @@ int main(int argc, char *argv[]) {
         //buf[strlen(buf)-1] = '\0'; //trim off trailing newline
 
         int length = 1024;
-        std::string username; //10 char username plus null character
-        std::string pin; // 4 digit PIN plus null character
 
         std::vector<std::string> command;
 
@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
             while (validAmount == false) {
                 withdrawAmount = "";
                 cout << "Please enter amount > $0 and <= $500 to withdraw: ";
-                cin >> withdrawAmount;
+                std::getline(std::cin, withdrawAmount);
                 if (is_number(withdrawAmount)) { // Check amount entered is formed of digits, non-negative, and < $500
                     if (stoi(withdrawAmount) <= 500 && stoi(withdrawAmount) > 0) {
 
